@@ -1,0 +1,7 @@
+service hwservicemanager /system/bin/hwservicemanager
+    class core
+    user system
+    group system readproc
+    critical
+    writepid /dev/cpuset/system-background/tasks
+
