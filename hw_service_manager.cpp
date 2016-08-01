@@ -24,18 +24,18 @@ using android::String8;
 using android::String16;
 
 // libbinder:
-using android::hidl::BBinder;
-using android::hidl::BnInterface;
-using android::hidl::defaultServiceManager;
-using android::hidl::IBinder;
-using android::hidl::IInterface;
-using android::hidl::IPCThreadState;
-using android::hidl::Parcel;
-using android::hidl::ProcessState;
-using android::hidl::binder::Status;
-using android::hidl::hidl_version;
-using android::hidl::get_major_hidl_version;
-using android::hidl::get_minor_hidl_version;
+using android::hardware::BBinder;
+using android::hardware::BnInterface;
+using android::hardware::defaultServiceManager;
+using android::hardware::IBinder;
+using android::hardware::IInterface;
+using android::hardware::IPCThreadState;
+using android::hardware::Parcel;
+using android::hardware::ProcessState;
+using android::hardware::Status;
+using android::hardware::hidl_version;
+using android::hardware::get_major_hidl_version;
+using android::hardware::get_minor_hidl_version;
 
 // Standard library
 using std::map;
@@ -44,7 +44,7 @@ using std::unique_ptr;
 using std::vector;
 
 // Service manager definition
-using android::hidl::IServiceManager;
+using android::hardware::IServiceManager;
 
 namespace {
 
