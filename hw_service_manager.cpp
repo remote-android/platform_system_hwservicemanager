@@ -20,7 +20,6 @@ using android::LooperCallback;
 using android::OK;
 using android::sp;
 using android::status_t;
-using android::String8;
 using android::String16;
 
 // libbinder:
@@ -34,11 +33,9 @@ using android::hardware::Parcel;
 using android::hardware::ProcessState;
 using android::hardware::Status;
 using android::hardware::hidl_version;
-using android::hardware::get_major_hidl_version;
-using android::hardware::get_minor_hidl_version;
 
 // Standard library
-using std::map;
+using std::multimap;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -61,8 +58,8 @@ class BinderCallback : public LooperCallback {
 
 class HidlService {
   public:
-      HidlService(const String16 &name, const sp<IBinder>& service, const hidl_version& version,
-                  const String16 &metaVersion) : mName(name), mVersion(version),
+      HidlService(const string &name, const sp<IBinder>& service, const hidl_version& version,
+                  const string &metaVersion) : mName(name), mVersion(version),
                                                  mMetaVersion(metaVersion), mService(service) {
       }
       sp<IBinder> getService() {
@@ -72,19 +69,22 @@ class HidlService {
           mService = service;
       }
 
+      hidl_version& getVersion() {
+          return mVersion;
+      }
+
       bool supportsVersion(hidl_version version) {
-          if (get_major_hidl_version(version) == get_major_hidl_version(mVersion) &&
-                  get_minor_hidl_version(version) <= get_minor_hidl_version(mVersion)) {
+          if (version.get_major() == mVersion.get_major() &&
+                  version.get_minor() <= mVersion.get_minor()) {
               return true;
           }
-          ALOGE("Service doesn't support version %d.%d", get_major_hidl_version(version),
-                  get_minor_hidl_version(version));
+          ALOGE("Service doesn't support version %u.%u", version.get_major(), version.get_minor());
           return false;
       }
   private:
-      String16                         mName;        // Service name
+      string                           mName;        // Service name
       hidl_version                     mVersion;     // Supported interface version
-      String16                         mMetaVersion; // Meta-version of the HIDL interface
+      string                           mMetaVersion; // Meta-version of the HIDL interface
       sp<IBinder>                      mService;     // Binder handle to service
 
 };
@@ -93,8 +93,9 @@ class HwServiceManager : public BnInterface<IServiceManager> {
   public:
     HwServiceManager() {}
     virtual ~HwServiceManager() = default;
-
-    map<String16, unique_ptr<HidlService>> mServiceMap;
+    // Access to this map doesn't need to be locked, since hwservicemanager
+    // is single-threaded.
+    multimap<string, unique_ptr<HidlService>> mServiceMap;
 
     /*
      **************************************************************************
@@ -107,21 +108,24 @@ class HwServiceManager : public BnInterface<IServiceManager> {
      * on the client-side to block on calling checkService().
      */
     virtual sp<IBinder>         getService( const String16& name,
-                                            const hidl_version version) const {
+                                            const hidl_version& version) const {
         return checkService(name, version);
     }
 
     virtual sp<IBinder>         checkService( const String16& name,
-                                              const hidl_version version) const {
-        auto service = mServiceMap.find(name);
-        if (service == mServiceMap.end()) {
-            return nullptr;
+                                              const hidl_version& version) const {
+        const string name_str = String16::std_string(name);
+        auto numEntries = mServiceMap.count(name_str);
+        auto service_iter = mServiceMap.find(name_str);
+
+        while (numEntries > 0) {
+            if (service_iter->second->supportsVersion(version)) {
+                return service_iter->second->getService();
+            }
+            --numEntries;
+            ++service_iter;
         }
-        if (service->second->supportsVersion(version)) {
-            return service->second->getService();
-        } else {
-            return nullptr;
-        }
+        return nullptr;
     }
 
     /**
@@ -129,17 +133,25 @@ class HwServiceManager : public BnInterface<IServiceManager> {
      */
     virtual status_t            addService( const String16& name,
                                             const sp<IBinder>& service,
-                                            const hidl_version version,
+                                            const hidl_version& version,
                                             bool /*allowIsolated = false*/) {
-        ALOGE("addService for service %s version %" PRIu32, String8(name).string(), version);
-        auto existing_service = mServiceMap.find(name);
-        if (existing_service != mServiceMap.end()) {
-            // Only update handle to service, don't dynamically update versions
-            // TODO needs to deal with different major versions correctly
-            existing_service->second->setService(service);
-        } else {
-            mServiceMap[name] = unique_ptr<HidlService>(
-                    new HidlService(name, service, version, String16()));
+        const string name_str = String16::std_string(name);
+        auto numEntries = mServiceMap.count(name_str);
+        auto service_iter = mServiceMap.find(name_str);
+        bool replaced = false;
+        while (numEntries > 0) {
+            if (service_iter->second->getVersion() == version) {
+                // Just update service reference
+                service_iter->second->setService(service);
+                replaced = true;
+                break;
+            }
+            --numEntries;
+            ++service_iter;
+        }
+        if (!replaced) {
+            mServiceMap.insert({name_str, unique_ptr<HidlService>(
+                    new HidlService(name_str, service, version, ""))});
         }
 
         // TODO link to death so we know when it dies
@@ -159,7 +171,7 @@ class HwServiceManager : public BnInterface<IServiceManager> {
             case GET_SERVICE_TRANSACTION:
             {
                 String16 serviceName;
-                hidl_version version;
+                hidl_version *version;
                 if (!(parcel_in.checkInterface(this))) {
                     ret_status = BAD_TYPE;
                     break;
@@ -168,12 +180,12 @@ class HwServiceManager : public BnInterface<IServiceManager> {
                 if (ret_status != OK) {
                     break;
                 }
-                ret_status = parcel_in.readUint32(&version);
-                if (ret_status != OK) {
+                version = hidl_version::readFromParcel(parcel_in);
+                if (version == nullptr) {
                     break;
                 }
                 // TODO SELinux access control
-                sp<IBinder> service = getService(serviceName, version);
+                sp<IBinder> service = getService(serviceName, *version);
                 ret_status = parcel_out->writeStrongBinder(service);
                 if (ret_status != OK) {
                     break;
@@ -185,7 +197,7 @@ class HwServiceManager : public BnInterface<IServiceManager> {
             case CHECK_SERVICE_TRANSACTION:
             {
                 String16 serviceName;
-                hidl_version version;
+                hidl_version *version;
                 if (!(parcel_in.checkInterface(this))) {
                     ret_status = BAD_TYPE;
                     break;
@@ -194,12 +206,12 @@ class HwServiceManager : public BnInterface<IServiceManager> {
                 if (ret_status != OK) {
                     break;
                 }
-                ret_status = parcel_in.readUint32(&version);
-                if (ret_status != OK) {
+                version = hidl_version::readFromParcel(parcel_in);
+                if (version == nullptr) {
                     break;
                 }
                 // TODO SELinux access control
-                sp<IBinder> service = getService(serviceName, version);
+                sp<IBinder> service = getService(serviceName, *version);
                 ret_status = parcel_out->writeStrongBinder(service);
                 if (ret_status != OK) {
                     break;
@@ -212,7 +224,7 @@ class HwServiceManager : public BnInterface<IServiceManager> {
             {
                 String16 serviceName;
                 sp<IBinder> service;
-                hidl_version version;
+                hidl_version *version;
                 if (!(parcel_in.checkInterface(this))) {
                     ret_status = BAD_TYPE;
                     break;
@@ -225,13 +237,13 @@ class HwServiceManager : public BnInterface<IServiceManager> {
                 if (ret_status != OK) {
                     break;
                 }
-                ret_status = parcel_in.readUint32(&version);
-                if (ret_status != OK) {
+                version = hidl_version::readFromParcel(parcel_in);
+                if (version == nullptr) {
                     break;
                 }
                 // TODO need isolation param?
                 // TODO SELinux access control
-                ret_status = addService(serviceName, service, version, false);
+                ret_status = addService(serviceName, service, *version, false);
                 parcel_out->writeInt32(ret_status);
                 if (ret_status != OK) {
                     break;
