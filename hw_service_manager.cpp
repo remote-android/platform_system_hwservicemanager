@@ -3,9 +3,9 @@
 #include <inttypes.h>
 #include <unistd.h>
 
+#include <hidl/IServiceManager.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
-#include <hwbinder/IServiceManager.h>
 #include <hwbinder/ProcessState.h>
 #include <hwbinder/Status.h>
 #include <utils/Errors.h>

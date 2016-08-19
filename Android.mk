@@ -15,7 +15,5 @@ LOCAL_CFLAGS += $(svc_c_flags)
 LOCAL_MODULE := hwservicemanager
 LOCAL_C_INCLUDES := system/libhwbinder/include
 LOCAL_INIT_RC := hwservicemanager.rc
-# We can remove the libutils / libbase dependency once we hit master
-# Since that has support for LOCAL_EXPORT_SHARED_LIBRARY_HEADERS
-LOCAL_SHARED_LIBRARIES := liblog libselinux libhwbinder libutils libbase
+LOCAL_SHARED_LIBRARIES := liblog libselinux libhidl libhwbinder libutils
 include $(BUILD_EXECUTABLE)
