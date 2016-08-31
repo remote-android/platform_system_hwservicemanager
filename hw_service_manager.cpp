@@ -57,6 +57,7 @@ using std::vector;
 
 // Service manager definition
 using android::hardware::IServiceManager;
+using android::hardware::IHwServiceManager;
 
 namespace {
 
@@ -104,13 +105,16 @@ class HidlService {
 
 };
 
-class HwServiceManager : public BnInterface<IServiceManager> {
+class HwServiceManager : public BnInterface<IServiceManager, IHwServiceManager> {
   public:
-    HwServiceManager() {}
-    virtual ~HwServiceManager() = default;
     // Access to this map doesn't need to be locked, since hwservicemanager
     // is single-threaded.
     multimap<string, unique_ptr<HidlService>> mServiceMap;
+
+    HwServiceManager() : BnInterface<IServiceManager, IHwServiceManager>(
+            sp<IServiceManager>(this)) {
+
+    }
 
     /*
      **************************************************************************
@@ -172,7 +176,6 @@ class HwServiceManager : public BnInterface<IServiceManager> {
         // TODO link to death so we know when it dies
         return OK;
     }
-
     /*
      **************************************************************************
      BnInterface methods
@@ -279,7 +282,7 @@ class HwServiceManager : public BnInterface<IServiceManager> {
 };
 
 int Run() {
-  android::sp<HwServiceManager> service = new HwServiceManager;
+  android::sp<HwServiceManager> service = new HwServiceManager();
   sp<Looper> looper(Looper::prepare(0 /* opts */));
 
   int binder_fd = -1;
