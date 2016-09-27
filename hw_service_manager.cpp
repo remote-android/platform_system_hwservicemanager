@@ -292,7 +292,17 @@ int Run() {
   int binder_fd = -1;
 
   IPCThreadState::self()->setupPolling(&binder_fd);
-  if (binder_fd < 0) return -1;
+  if (binder_fd < 0) {
+    // hwservicemanager is a critical service; until support for /dev/hwbinder
+    // is checked in for all devices, prevent it from exiting; if it were to
+    // exit, it would get restarted again and fail again several times,
+    // eventually causing the device to boot into recovery mode.
+    // TODO: revert
+    while (true) {
+      sleep(UINT_MAX);
+    }
+    return -1;
+  }
 
   sp<BinderCallback> cb(new BinderCallback);
   if (looper->addFd(binder_fd, Looper::POLL_CALLBACK, Looper::EVENT_INPUT, cb,
