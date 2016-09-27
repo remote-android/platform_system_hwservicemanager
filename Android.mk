@@ -13,7 +13,6 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := hw_service_manager.cpp
 LOCAL_CFLAGS += $(svc_c_flags)
 LOCAL_MODULE := hwservicemanager
-LOCAL_INIT_RC := hwservicemanager.rc
 LOCAL_SHARED_LIBRARIES := liblog libselinux libhidl libhwbinder libcutils libutils
 LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := libhwbinder
 include $(BUILD_EXECUTABLE)
