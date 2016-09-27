@@ -13,18 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#define LOG_TAG "hwservicemanager"
+#include <utils/Log.h>
+
 #include <map>
 
 #include <inttypes.h>
 #include <unistd.h>
 
+#include <cutils/properties.h>
 #include <hidl/IServiceManager.h>
 #include <hidl/Status.h>
 #include <hwbinder/IInterface.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/ProcessState.h>
 #include <utils/Errors.h>
-#include <utils/Log.h>
 #include <utils/Looper.h>
 #include <utils/StrongPointer.h>
 
@@ -301,6 +305,12 @@ int Run() {
   IPCThreadState::self()->setTheContextObject(service);
   // Then tell binder kernel
   ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, 0);
+
+  int rc = property_set("hwservicemanager.ready", "true");
+  if (rc) {
+    ALOGE("Failed to set \"hwservicemanager.ready\" (error %d). "\
+          "HAL services will not launch!\n", rc);
+  }
 
   while (true) {
     looper->pollAll(-1 /* timeoutMillis */);
