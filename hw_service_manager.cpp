@@ -293,6 +293,7 @@ int Run() {
 
   IPCThreadState::self()->setupPolling(&binder_fd);
   if (binder_fd < 0) {
+    ALOGE("Failed to aquire binder FD; staying around but doing nothing");
     // hwservicemanager is a critical service; until support for /dev/hwbinder
     // is checked in for all devices, prevent it from exiting; if it were to
     // exit, it would get restarted again and fail again several times,
