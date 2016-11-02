@@ -1,20 +1,28 @@
 cc_binary {
     name: "hwservicemanager",
-    srcs: ["hw_service_manager.cpp"],
+    init_rc: [
+        "hwservicemanager.rc",
+    ],
+    srcs: [
+        "ServiceManager.cpp",
+        "service.cpp",
+    ],
     cflags: [
         "-Wall",
         "-Wextra",
         "-Werror",
     ],
     shared_libs: [
+        "libhidl",
         "liblog",
         "libselinux",
-        "libhidl",
         "libhwbinder",
         "libcutils",
         "libutils",
     ],
-    export_shared_lib_headers: ["libhwbinder"],
+    export_shared_lib_headers: [
+        "libhwbinder"
+    ],
     product_variables: {
         binder32bit: {
             cflags: ["-DBINDER_IPC_32BIT=1"],
