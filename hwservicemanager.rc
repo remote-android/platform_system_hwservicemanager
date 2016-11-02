@@ -1,0 +1,9 @@
+service hwservicemanager /system/bin/hwservicemanager
+    user system
+    disabled
+    group system readproc
+    critical
+    writepid /dev/cpuset/system-background/tasks
+
+on property:hwservicemanager.ready=true
+    class_start hal
