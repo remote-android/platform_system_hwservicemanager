@@ -1,10 +1,11 @@
-#ifndef HIDL_GENERATED_android_hardware_manager_V1_0_ServiceManager_H_
-#define HIDL_GENERATED_android_hardware_manager_V1_0_ServiceManager_H_
+#ifndef ANDROID_HARDWARE_MANAGER_V1_0_SERVICEMANAGER_H
+#define ANDROID_HARDWARE_MANAGER_V1_0_SERVICEMANAGER_H
 
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <hidl/Status.h>
 #include <hidl/MQDescriptor.h>
 #include <map>
+#include <unordered_map>
 
 namespace android {
 namespace hidl {
@@ -21,57 +22,58 @@ using ::android::hardware::Void;
 using ::android::hidl::manager::V1_0::IServiceManager;
 using ::android::sp;
 
-using Version = ::android::hidl::manager::V1_0::IServiceManager::Version;
-
-struct HidlService {
-      HidlService(const std::string &name,
-                  const sp<IBinder>& service,
-                  const Version& version,
-                  const std::string &metaVersion)
-      : mName(name),
-        mVersion(version.major, version.minor),
-        mMetaVersion(metaVersion),
-        mService(service) {}
-
-      sp<IBinder> getService() const {
-          return mService;
-      }
-
-      void setService(const sp<IBinder>& service) {
-          mService = service;
-      }
-
-      const hidl_version& getVersion() const {
-          return mVersion;
-      }
-
-      bool supportsVersion(hidl_version version) {
-          if (version.get_major() == mVersion.get_major() &&
-                  version.get_minor() <= mVersion.get_minor()) {
-              return true;
-          }
-          // TODO remove log
-          ALOGE("Service doesn't support version %u.%u", version.get_major(), version.get_minor());
-          return false;
-      }
-
-private:
-      const std::string                     mName;
-      const hidl_version                    mVersion;
-      const std::string                     mMetaVersion;
-      sp<IBinder>                           mService;
-};
-
 struct ServiceManager : public IServiceManager {
     // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
-    Return<void> get(const hidl_string& name, const Version& version, get_cb _hidl_cb)  override;
-    Return<bool> add(const hidl_string& name, const sp<IBinder>& service, const Version& version)  override;
+    Return<void> get(const hidl_string& fqName,
+                     const hidl_string& name,
+                     get_cb _hidl_cb)  override;
+    Return<bool> add(const hidl_vec<hidl_string>& interfaceChain,
+                     const hidl_string& name,
+                     const sp<IBinder>& service) override;
+
+    struct HidlService {
+        HidlService(const std::string &iface,
+                    const std::string &name,
+                    const hidl_version &version,
+                    const sp<IBinder> &service);
+
+        sp<IBinder> getService() const;
+        void setService(sp<IBinder> service);
+        const std::string &getIface() const;
+        const std::string &getName() const;
+        const hidl_version &getVersion() const;
+
+        bool supportsVersion(const hidl_version &version) const;
+
+        static std::unique_ptr<HidlService> make(
+            const std::string &fqName,
+            const std::string &name,
+            const sp<IBinder>& service = nullptr);
+
+    private:
+        const std::string                     mIface;   // e.x. "android.hidl.manager::IServiceManager"
+        const std::string                     mName;    // e.x. "manager"
+        const hidl_version                    mVersion; // e.x. { 1, 0 }
+        sp<IBinder>                           mService;
+    };
 
 private:
 
-    // Access to this map doesn't need to be locked, since hwservicemanager
-    // is single-threaded.
-    std::multimap<std::string, std::unique_ptr<HidlService>> mServiceMap;
+    /**
+     * Access to this map doesn't need to be locked, since hwservicemanager
+     * is single-threaded.
+     *
+     * e.x.
+     * mServiceMap["android.hidl.manager::IServiceManager"]["manager"]
+     *     -> HidlService object
+     */
+    std::unordered_map<
+        std::string, // package::interface e.x. "android.hidl.manager::IServiceManager"
+        std::multimap<
+            std::string, // name e.x. "manager"
+            std::unique_ptr<HidlService>
+        >
+    > mServiceMap;
 };
 
 }  // namespace implementation
@@ -80,4 +82,4 @@ private:
 }  // namespace hidl
 }  // namespace android
 
-#endif  // HIDL_GENERATED_android_hardware_manager_V1_0_ServiceManager_H_
+#endif  // ANDROID_HARDWARE_MANAGER_V1_0_SERVICEMANAGER_H
