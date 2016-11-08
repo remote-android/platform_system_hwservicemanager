@@ -1,4 +1,4 @@
-#define LOG_TAG "android.hardware.manager@1.0-service"
+#define LOG_TAG "hwservicemanager"
 
 #include <utils/Log.h>
 
@@ -31,11 +31,11 @@ using android::hardware::ProcessState;
 
 // libhidl
 using android::hardware::hidl_string;
+using android::hardware::hidl_vec;
 
 // android.hardware.manager@1.0
 using android::hidl::manager::V1_0::BnServiceManager;
 using android::hidl::manager::V1_0::IServiceManager;
-using Version = android::hidl::manager::V1_0::IServiceManager::Version;
 
 // android.hardware.manager@1.0-service
 using android::hidl::manager::V1_0::implementation::ServiceManager;
@@ -56,14 +56,6 @@ public:
 int main() {
     ServiceManager *manager = new ServiceManager();
     sp<BnServiceManager> service = new BnServiceManager(manager);
-
-    hidl_string name;
-    name.setToExternal(serviceName.c_str(), serviceName.size());
-    Version version {
-        .major = IServiceManager::version.get_major(),
-        .minor = IServiceManager::version.get_minor(),
-    };
-    manager->add(name, service, version);
 
     sp<Looper> looper(Looper::prepare(0 /* opts */));
 
