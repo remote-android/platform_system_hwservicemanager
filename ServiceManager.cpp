@@ -5,6 +5,7 @@
 #include <android-base/logging.h>
 #include <hidl/HidlSupport.h>
 #include <regex>
+#include <sstream>
 
 namespace android {
 namespace hidl {
@@ -22,11 +23,13 @@ static const std::regex kRE_FQNAME (
 );
 
 ServiceManager::HidlService::HidlService(
-    const std::string &iface,
+    const std::string &package,
+    const std::string &interface,
     const std::string &name,
     const hidl_version &version,
     const sp<IBinder> &service)
-: mIface(iface),
+: mPackage(package),
+  mInterface(interface),
   mName(name),
   mVersion(version),
   mService(service)
@@ -38,8 +41,11 @@ sp<IBinder> ServiceManager::HidlService::getService() const {
 void ServiceManager::HidlService::setService(sp<IBinder> service) {
     mService = service;
 }
-const std::string &ServiceManager::HidlService::getIface() const {
-    return mIface;
+const std::string &ServiceManager::HidlService::getPackage() const {
+    return mPackage;
+}
+const std::string &ServiceManager::HidlService::getInterface() const {
+    return mInterface;
 }
 const std::string &ServiceManager::HidlService::getName() const {
     return mName;
@@ -56,6 +62,21 @@ bool ServiceManager::HidlService::supportsVersion(const hidl_version &version) c
     // TODO remove log
     ALOGE("Service doesn't support version %u.%u", version.get_major(), version.get_minor());
     return false;
+}
+
+std::string ServiceManager::HidlService::iface() const {
+    std::stringstream ss;
+    ss << mPackage << "::" << mInterface;
+    return ss.str();
+}
+
+std::string ServiceManager::HidlService::string() const {
+    std::stringstream ss;
+    ss << mPackage
+       << "@" << mVersion.get_major() << "." << mVersion.get_minor()
+       << "::" << mInterface
+       << "/" << mName;
+    return ss.str();
 }
 
 //static
@@ -79,7 +100,8 @@ std::unique_ptr<ServiceManager::HidlService> ServiceManager::HidlService::make(
     const std::string &interfaceName = match.str(4);
 
     return std::make_unique<HidlService>(
-        package + "::" + interfaceName,
+        package,
+        interfaceName,
         serviceName,
         hidl_version(major, minor),
         service
@@ -99,7 +121,7 @@ Return<void> ServiceManager::get(const hidl_string& fqName,
         return Void();
     }
 
-    auto ifaceIt = mServiceMap.find(desired->getIface());
+    auto ifaceIt = mServiceMap.find(desired->iface());
     if (ifaceIt == mServiceMap.end()) {
         _hidl_cb(nullptr);
         return Void();
@@ -139,7 +161,7 @@ Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
             return false;
         }
 
-        auto &ifaceMap = mServiceMap[adding->getIface()];
+        auto &ifaceMap = mServiceMap[adding->iface()];
         auto range = ifaceMap.equal_range(name);
 
         bool replaced = false;
@@ -160,6 +182,74 @@ Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
     // TODO link to death so we know when it dies
 
     return true;
+}
+
+Return<void> ServiceManager::list(list_cb _hidl_cb) {
+    size_t total = 0;
+
+    for (const auto &interfaceMapping : mServiceMap) {
+        const auto &ifaceMap = interfaceMapping.second;
+
+        total += ifaceMap.size();
+    }
+
+    hidl_vec<hidl_string> list;
+    list.resize(total);
+
+    size_t idx = 0;
+    for (const auto &interfaceMapping : mServiceMap) {
+        const auto &ifaceMap = interfaceMapping.second;
+
+        for (const auto &serviceMapping : ifaceMap) {
+            const std::unique_ptr<HidlService> &service = serviceMapping.second;
+
+            list[idx++] = service->string();
+        }
+    }
+
+    _hidl_cb(list);
+    return Void();
+}
+
+Return<void> ServiceManager::listByInterface(const hidl_string& fqName, listByInterface_cb _hidl_cb) {
+    std::unique_ptr<HidlService> desired = HidlService::make(fqName, "");
+
+    if (desired == nullptr) {
+        _hidl_cb(hidl_vec<hidl_string>());
+        return Void();
+    }
+
+    auto ifaceIt = mServiceMap.find(desired->iface());
+    if (ifaceIt == mServiceMap.end()) {
+        _hidl_cb(hidl_vec<hidl_string>());
+        return Void();
+    }
+
+    size_t total = 0;
+
+    const auto &ifaceMap = ifaceIt->second;
+    for (const auto &serviceMapping : ifaceMap) {
+        const std::unique_ptr<HidlService> &service = serviceMapping.second;
+
+        if (service->supportsVersion(desired->getVersion())) {
+            total += 1;
+        }
+    }
+
+    hidl_vec<hidl_string> list;
+    list.resize(total);
+
+    size_t idx = 0;
+    for (const auto &serviceMapping : ifaceMap) {
+        const std::unique_ptr<HidlService> &service = serviceMapping.second;
+
+        if (service->supportsVersion(desired->getVersion())) {
+            list[idx++] = service->getName();
+        }
+    }
+
+    _hidl_cb(list);
+    return Void();
 }
 
 } // namespace implementation
