@@ -4,6 +4,7 @@ cc_binary {
         "hwservicemanager.rc",
     ],
     srcs: [
+        "HidlService.cpp",
         "ServiceManager.cpp",
         "service.cpp",
     ],
