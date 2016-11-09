@@ -57,6 +57,15 @@ int main() {
     ServiceManager *manager = new ServiceManager();
     sp<BnServiceManager> service = new BnServiceManager(manager);
 
+    hidl_vec<hidl_string> chain;
+    service->interfaceChain([&chain](const auto &interfaceChain) {
+        chain = interfaceChain;
+    });
+
+    if (!manager->add(chain, serviceName, service)) {
+        ALOGE("Failed to register hwservicemanager with itself.");
+    }
+
     sp<Looper> looper(Looper::prepare(0 /* opts */));
 
     int binder_fd = -1;
