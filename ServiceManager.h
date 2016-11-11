@@ -7,6 +7,8 @@
 #include <map>
 #include <unordered_map>
 
+#include "HidlService.h"
+
 namespace android {
 namespace hidl {
 namespace manager {
@@ -20,6 +22,7 @@ using ::android::hardware::IBinder;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::hidl::manager::V1_0::IServiceManager;
+using ::android::hidl::manager::V1_0::IServiceNotification;
 using ::android::sp;
 
 struct ServiceManager : public IServiceManager {
@@ -32,42 +35,59 @@ struct ServiceManager : public IServiceManager {
                      const sp<IBinder>& service) override;
 
     Return<void> list(list_cb _hidl_cb) override;
-    Return<void> listByInterface(const hidl_string& fqName,
+    Return<void> listByInterface(const hidl_string& fqInstanceName,
                                  listByInterface_cb _hidl_cb) override;
 
-    struct HidlService {
-        HidlService(const std::string &package,
-                    const std::string &interface,
-                    const std::string &name,
-                    const hidl_version &version,
-                    const sp<IBinder> &service);
-
-        sp<IBinder> getService() const;
-        void setService(sp<IBinder> service);
-        const std::string &getPackage() const;
-        const std::string &getInterface() const;
-        const std::string &getName() const;
-        const hidl_version &getVersion() const;
-
-        bool supportsVersion(const hidl_version &version) const;
-
-        std::string iface() const; // e.x. "android.hidl.manager::IServiceManager"
-        std::string string() const; // e.x. "android.hidl.manager@1.0::IServiceManager/manager"
-
-        static std::unique_ptr<HidlService> make(
-            const std::string &fqName,
-            const std::string &name,
-            const sp<IBinder>& service = nullptr);
-
-    private:
-        const std::string                     mPackage;  // e.x. "android.hidl.manager"
-        const std::string                     mInterface; // e.x. "IServiceManager"
-        const std::string                     mName;     // e.x. "manager"
-        const hidl_version                    mVersion;  // e.x. { 1, 0 }
-        sp<IBinder>                           mService;
-    };
+    Return<bool> registerForNotifications(const hidl_string& fqName,
+                                          const hidl_string& name,
+                                          const sp<IServiceNotification>& callback) override;
 
 private:
+
+    using InstanceMap = std::multimap<
+            std::string, // instance name e.x. "manager"
+            std::unique_ptr<HidlService>
+        >;
+
+    struct PackageInterfaceMap {
+        InstanceMap &getInstanceMap();
+        const InstanceMap &getInstanceMap() const;
+
+        /**
+         * Finds a HidlService which supports the desired version. If none,
+         * returns nullptr. HidlService::getService() might also be nullptr
+         * if there are registered IServiceNotification objects for it. Return
+         * value should be treated as a temporary reference.
+         */
+        HidlService *lookupSupporting(
+            const std::string &name,
+            const hidl_version &version);
+        const HidlService *lookupSupporting(
+            const std::string &name,
+            const hidl_version &version) const;
+        /**
+         * Finds a HidlService which is exactly the desired version. If none,
+         * returns nullptr. HidlService::getService() might also be nullptr
+         * if there are registered IServiceNotification objects for it. Return
+         * value should be treated as a temporary reference.
+         */
+        HidlService *lookupExact(
+            const std::string &name,
+            const hidl_version &version);
+
+        void insertService(std::unique_ptr<HidlService> &&service);
+
+        void addPackageListener(sp<IServiceNotification> listener);
+
+    private:
+        void sendPackageRegistrationNotification(
+            const hidl_string &fqName,
+            const hidl_string &instanceName) const;
+
+        InstanceMap mInstanceMap{};
+
+        std::vector<sp<IServiceNotification>> mPackageListeners{};
+    };
 
     /**
      * Access to this map doesn't need to be locked, since hwservicemanager
@@ -79,10 +99,7 @@ private:
      */
     std::unordered_map<
         std::string, // package::interface e.x. "android.hidl.manager::IServiceManager"
-        std::multimap<
-            std::string, // name e.x. "manager"
-            std::unique_ptr<HidlService>
-        >
+        PackageInterfaceMap
     > mServiceMap;
 };
 
