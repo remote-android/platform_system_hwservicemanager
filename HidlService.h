@@ -16,9 +16,9 @@ namespace implementation {
 using ::android::hardware::hidl_vec;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_version;
-using ::android::hardware::IBinder;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
+using ::android::hidl::base::V1_0::IBase;
 using ::android::hidl::manager::V1_0::IServiceManager;
 using ::android::sp;
 
@@ -27,14 +27,14 @@ struct HidlService {
                 const std::string &interface,
                 const std::string &name,
                 const hidl_version &version,
-                const sp<IBinder> &service);
+                const sp<IBase> &service);
 
     /**
      * Note, getService() can be nullptr. This is because you can have a HidlService
      * with registered IServiceNotification objects but no service registered yet.
      */
-    sp<IBinder> getService() const;
-    void setService(sp<IBinder> service);
+    sp<IBase> getService() const;
+    void setService(sp<IBase> service);
     const std::string &getPackage() const;
     const std::string &getInterface() const;
     const std::string &getName() const;
@@ -51,7 +51,7 @@ struct HidlService {
     static std::unique_ptr<HidlService> make(
         const std::string &fqName,
         const std::string &name,
-        const sp<IBinder>& service = nullptr);
+        const sp<IBase>& service = nullptr);
 
 private:
     void sendRegistrationNotifications() const;
@@ -60,7 +60,7 @@ private:
     const std::string                     mInterface;    // e.x. "IServiceManager"
     const std::string                     mInstanceName; // e.x. "manager"
     const hidl_version                    mVersion;      // e.x. { 1, 0 }
-    sp<IBinder>                           mService;
+    sp<IBase>                             mService;
 
     std::vector<sp<IServiceNotification>> mListeners{};
 };
