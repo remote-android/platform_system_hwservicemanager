@@ -62,7 +62,9 @@ int main() {
         chain = interfaceChain;
     });
 
-    if (!manager->add(chain, serviceName, service)) {
+    // no transport error is possible here because we are calling
+    // the function directly, so call 'get' without 'isOk'.
+    if (!manager->add(chain, serviceName, service).get()) {
         ALOGE("Failed to register hwservicemanager with itself.");
     }
 
