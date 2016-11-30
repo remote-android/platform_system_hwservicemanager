@@ -79,11 +79,11 @@ private:
 
         void addPackageListener(sp<IServiceNotification> listener);
 
-    private:
         void sendPackageRegistrationNotification(
             const hidl_string &fqName,
             const hidl_string &instanceName) const;
 
+    private:
         InstanceMap mInstanceMap{};
 
         std::vector<sp<IServiceNotification>> mPackageListeners{};
