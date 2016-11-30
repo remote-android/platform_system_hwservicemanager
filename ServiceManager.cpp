@@ -69,8 +69,6 @@ void ServiceManager::PackageInterfaceMap::insertService(
     hidl_string instanceName = service->getName();
 
     mInstanceMap.insert({service->getName(), std::move(service)});
-
-    sendPackageRegistrationNotification(iface, instanceName);
 }
 
 void ServiceManager::PackageInterfaceMap::sendPackageRegistrationNotification(
@@ -155,6 +153,8 @@ Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
         } else {
             hidlService->setService(adding->getService());
         }
+
+        ifaceMap.sendPackageRegistrationNotification(fqName, name);
     }
 
     // TODO implement link to death so we know when it dies
