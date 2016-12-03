@@ -18,9 +18,9 @@ namespace implementation {
 using ::android::hardware::hidl_vec;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_version;
-using ::android::hardware::IBinder;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
+using ::android::hidl::base::V1_0::IBase;
 using ::android::hidl::manager::V1_0::IServiceManager;
 using ::android::hidl::manager::V1_0::IServiceNotification;
 using ::android::sp;
@@ -32,7 +32,7 @@ struct ServiceManager : public IServiceManager {
                      get_cb _hidl_cb)  override;
     Return<bool> add(const hidl_vec<hidl_string>& interfaceChain,
                      const hidl_string& name,
-                     const sp<IBinder>& service) override;
+                     const sp<IBase>& service) override;
 
     Return<void> list(list_cb _hidl_cb) override;
     Return<void> listByInterface(const hidl_string& fqInstanceName,
