@@ -116,7 +116,7 @@ Return<void> ServiceManager::get(const hidl_string& fqName,
     const HidlService *hidlService
         = ifaceMap.lookupSupporting(desired->getName(), desired->getVersion());
 
-    sp<IBinder> result = nullptr;
+    sp<IBase> result = nullptr;
     if (hidlService != nullptr) {
         result = hidlService->getService();
     }
@@ -127,7 +127,7 @@ Return<void> ServiceManager::get(const hidl_string& fqName,
 
 Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
                                  const hidl_string& name,
-                                 const sp<IBinder>& service) {
+                                 const sp<IBase>& service) {
 
     if (interfaceChain.size() == 0 || service == nullptr) {
         return false;
