@@ -25,7 +25,7 @@ HidlService::HidlService(
     const std::string &interface,
     const std::string &name,
     const hidl_version &version,
-    const sp<IBinder> &service)
+    const sp<IBase> &service)
 : mPackage(package),
   mInterface(interface),
   mInstanceName(name),
@@ -33,10 +33,10 @@ HidlService::HidlService(
   mService(service)
 {}
 
-sp<IBinder> HidlService::getService() const {
+sp<IBase> HidlService::getService() const {
     return mService;
 }
-void HidlService::setService(sp<IBinder> service) {
+void HidlService::setService(sp<IBase> service) {
     mService = service;
 
     sendRegistrationNotifications();
@@ -60,7 +60,8 @@ bool HidlService::supportsVersion(const hidl_version &version) const {
         return true;
     }
     // TODO remove log
-    ALOGE("Service doesn't support version %u.%u", version.get_major(), version.get_minor());
+    LOG(ERROR) << "Service doesn't support version "
+               << version.get_major() << "." << version.get_minor();
     return false;
 }
 
@@ -112,12 +113,12 @@ void HidlService::sendRegistrationNotifications() const {
 std::unique_ptr<HidlService> HidlService::make(
         const std::string &fqName,
         const std::string &serviceName,
-        const sp<IBinder> &service) {
+        const sp<IBase> &service) {
 
     std::smatch match;
 
     if (!std::regex_match(fqName, match, kRE_FQNAME)) {
-        ALOGE("Invalid service fqname %s", fqName.c_str());
+        LOG(ERROR) << "Invalid service fqname " << fqName;
         return nullptr;
     }
 
