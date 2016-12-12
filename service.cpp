@@ -58,11 +58,11 @@ int main() {
     sp<BnServiceManager> service = new BnServiceManager(manager);
 
     hidl_vec<hidl_string> chain;
-    service->interfaceChain([&chain](const auto &interfaceChain) {
+    manager->interfaceChain([&chain](const auto &interfaceChain) {
         chain = interfaceChain;
     });
 
-    if (!manager->add(chain, serviceName, service)) {
+    if (!manager->add(chain, serviceName, service->getImpl())) {
         ALOGE("Failed to register hwservicemanager with itself.");
     }
 
