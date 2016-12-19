@@ -13,6 +13,11 @@ namespace manager {
 namespace V1_0 {
 namespace implementation {
 
+void ServiceManager::serviceDied(uint64_t /*cookie*/, const wp<IBase>& who) {
+    // TODO(b/32837397)
+    remove(who);
+}
+
 ServiceManager::InstanceMap &ServiceManager::PackageInterfaceMap::getInstanceMap() {
     return mInstanceMap;
 }
@@ -76,7 +81,8 @@ void ServiceManager::PackageInterfaceMap::sendPackageRegistrationNotification(
         const hidl_string &instanceName) const {
 
     for (const auto &listener : mPackageListeners) {
-        listener->onRegistration(fqName, instanceName, false /* preexisting */);
+        auto ret = listener->onRegistration(fqName, instanceName, false /* preexisting */);
+        ret.isOk(); // ignore
     }
 }
 void ServiceManager::PackageInterfaceMap::addPackageListener(sp<IServiceNotification> listener) {
@@ -151,14 +157,17 @@ Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
         if (hidlService == nullptr) {
             ifaceMap.insertService(std::move(adding));
         } else {
+            if (hidlService->getService() != nullptr) {
+                auto ret = hidlService->getService()->unlinkToDeath(this);
+                ret.isOk(); // Ignore result
+            }
             hidlService->setService(adding->getService());
         }
 
         ifaceMap.sendPackageRegistrationNotification(fqName, name);
     }
-
-    // TODO implement link to death so we know when it dies
-
+    auto ret = service->linkToDeath(this, 0 /*cookie*/);
+    ret.isOk(); // Ignore result
     return true;
 }
 
@@ -266,6 +275,21 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
     return true;
 }
 
+bool ServiceManager::remove(const wp<IBase>& who) {
+    bool found = false;
+    for (auto &interfaceMapping : mServiceMap) {
+        auto &instanceMap = interfaceMapping.second.getInstanceMap();
+
+        for (auto it = instanceMap.begin(); it != instanceMap.end(); it++) {
+            const std::unique_ptr<HidlService> &service = it->second;
+            if (service->getService() == who) {
+                service->setService(nullptr);
+                found = true;
+            }
+        }
+    }
+    return found;
+}
 } // namespace implementation
 }  // namespace V1_0
 }  // namespace manager
