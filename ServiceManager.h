@@ -15,6 +15,7 @@ namespace manager {
 namespace V1_0 {
 namespace implementation {
 
+using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_version;
@@ -24,8 +25,9 @@ using ::android::hidl::base::V1_0::IBase;
 using ::android::hidl::manager::V1_0::IServiceManager;
 using ::android::hidl::manager::V1_0::IServiceNotification;
 using ::android::sp;
+using ::android::wp;
 
-struct ServiceManager : public IServiceManager {
+struct ServiceManager : public IServiceManager, hidl_death_recipient {
     // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
     Return<void> get(const hidl_string& fqName,
                      const hidl_string& name,
@@ -42,7 +44,9 @@ struct ServiceManager : public IServiceManager {
                                           const hidl_string& name,
                                           const sp<IServiceNotification>& callback) override;
 
+    virtual void serviceDied(uint64_t cookie, const wp<IBase>& who);
 private:
+    bool remove(const wp<IBase>& who);
 
     using InstanceMap = std::multimap<
             std::string, // instance name e.x. "manager"
