@@ -7,6 +7,7 @@
 
 #include <android/hidl/manager/1.0/BnServiceManager.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
+#include <android/hidl/token/1.0/ITokenManager.h>
 #include <cutils/properties.h>
 #include <hidl/Status.h>
 #include <hwbinder/IPCThreadState.h>
@@ -16,6 +17,7 @@
 #include <utils/StrongPointer.h>
 
 #include "ServiceManager.h"
+#include "TokenManager.h"
 
 // libutils:
 using android::BAD_TYPE;
@@ -33,12 +35,14 @@ using android::hardware::ProcessState;
 using android::hardware::hidl_string;
 using android::hardware::hidl_vec;
 
-// android.hardware.manager@1.0
+// hidl types
 using android::hidl::manager::V1_0::BnServiceManager;
 using android::hidl::manager::V1_0::IServiceManager;
+using android::hidl::token::V1_0::ITokenManager;
 
-// android.hardware.manager@1.0-service
+// implementations
 using android::hidl::manager::V1_0::implementation::ServiceManager;
+using android::hidl::token::V1_0::implementation::TokenManager;
 
 static std::string serviceName = "manager";
 
@@ -55,16 +59,21 @@ public:
 
 int main() {
     ServiceManager *manager = new ServiceManager();
-    sp<BnServiceManager> service = new BnServiceManager(manager);
 
-    hidl_vec<hidl_string> chain;
-    manager->interfaceChain([&chain](const auto &interfaceChain) {
-        chain = interfaceChain;
+    manager->interfaceChain([&](const auto &chain) {
+        if (!manager->add(chain, serviceName, manager)) {
+            ALOGE("Failed to register hwservicemanager with itself.");
+        }
     });
 
-    if (!manager->add(chain, serviceName, service->getImpl())) {
-        ALOGE("Failed to register hwservicemanager with itself.");
-    }
+    TokenManager *tokenManager = new TokenManager();
+
+    hidl_vec<hidl_string> tokenChain;
+    tokenManager->interfaceChain([&](const auto &chain) {
+        if (!manager->add(chain, serviceName, tokenManager)) {
+            ALOGE("Failed to register ITokenManager with hwservicemanager.");
+        }
+    });
 
     sp<Looper> looper(Looper::prepare(0 /* opts */));
 
@@ -92,6 +101,7 @@ int main() {
     }
 
     // Tell IPCThreadState we're the service manager
+    sp<BnServiceManager> service = new BnServiceManager(manager);
     IPCThreadState::self()->setTheContextObject(service);
     // Then tell binder kernel
     ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, 0);
