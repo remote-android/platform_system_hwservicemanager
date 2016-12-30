@@ -11,7 +11,6 @@
 #include <cutils/properties.h>
 #include <hidl/Status.h>
 #include <hwbinder/IPCThreadState.h>
-#include <hwbinder/ProcessState.h>
 #include <utils/Errors.h>
 #include <utils/Looper.h>
 #include <utils/StrongPointer.h>
@@ -29,9 +28,9 @@ using android::status_t;
 
 // libhwbinder:
 using android::hardware::IPCThreadState;
-using android::hardware::ProcessState;
 
 // libhidl
+using android::hardware::configureRpcThreadpool;
 using android::hardware::hidl_string;
 using android::hardware::hidl_vec;
 
@@ -58,6 +57,8 @@ public:
 };
 
 int main() {
+    configureRpcThreadpool(1, true /* callerWillJoin */);
+
     ServiceManager *manager = new ServiceManager();
 
     manager->interfaceChain([&](const auto &chain) {
