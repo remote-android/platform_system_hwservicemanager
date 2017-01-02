@@ -100,21 +100,18 @@ void ServiceManager::PackageInterfaceMap::addPackageListener(sp<IServiceNotifica
 }
 
 // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
-Return<void> ServiceManager::get(const hidl_string& fqName,
-                                 const hidl_string& name,
-                                 get_cb _hidl_cb) {
+Return<sp<IBase>> ServiceManager::get(const hidl_string& fqName,
+                                      const hidl_string& name) {
 
     std::unique_ptr<HidlService> desired = HidlService::make(fqName, name);
 
     if (desired == nullptr) {
-        _hidl_cb(nullptr);
-        return Void();
+        return nullptr;
     }
 
     auto ifaceIt = mServiceMap.find(desired->packageInterface());
     if (ifaceIt == mServiceMap.end()) {
-        _hidl_cb(nullptr);
-        return Void();
+        return nullptr;
     }
 
     const PackageInterfaceMap &ifaceMap = ifaceIt->second;
@@ -122,13 +119,11 @@ Return<void> ServiceManager::get(const hidl_string& fqName,
     const HidlService *hidlService
         = ifaceMap.lookupSupporting(desired->getName(), desired->getVersion());
 
-    sp<IBase> result = nullptr;
     if (hidlService != nullptr) {
-        result = hidlService->getService();
+        return hidlService->getService();
+    } else {
+        return nullptr;
     }
-
-    _hidl_cb(result);
-    return Void();
 }
 
 Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
