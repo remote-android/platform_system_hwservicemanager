@@ -15,7 +15,6 @@ namespace implementation {
 
 using ::android::hardware::hidl_vec;
 using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_version;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::hidl::base::V1_0::IBase;
@@ -23,10 +22,8 @@ using ::android::hidl::manager::V1_0::IServiceManager;
 using ::android::sp;
 
 struct HidlService {
-    HidlService(const std::string &package,
-                const std::string &interface,
-                const std::string &name,
-                const hidl_version &version,
+    HidlService(const std::string &interfaceName,
+                const std::string &instanceName,
                 const sp<IBase> &service);
 
     /**
@@ -35,31 +32,18 @@ struct HidlService {
      */
     sp<IBase> getService() const;
     void setService(sp<IBase> service);
-    const std::string &getPackage() const;
-    const std::string &getInterface() const;
-    const std::string &getName() const;
-    const hidl_version &getVersion() const;
-
-    bool supportsVersion(const hidl_version &version) const;
+    const std::string &getInterfaceName() const;
+    const std::string &getInstanceName() const;
 
     void addListener(const sp<IServiceNotification> &listener);
 
-    std::string fqName() const; // e.x. "android.hardware.manager@1.0::IServiceManager"
-    std::string packageInterface() const; // e.x. "android.hidl.manager::IServiceManager"
     std::string string() const; // e.x. "android.hidl.manager@1.0::IServiceManager/manager"
-
-    static std::unique_ptr<HidlService> make(
-        const std::string &fqName,
-        const std::string &name,
-        const sp<IBase>& service = nullptr);
 
 private:
     void sendRegistrationNotifications() const;
 
-    const std::string                     mPackage;      // e.x. "android.hidl.manager"
-    const std::string                     mInterface;    // e.x. "IServiceManager"
-    const std::string                     mInstanceName; // e.x. "manager"
-    const hidl_version                    mVersion;      // e.x. { 1, 0 }
+    const std::string                     mInterfaceName; // e.x. "android.hardware.manager@1.0::IServiceManager"
+    const std::string                     mInstanceName;  // e.x. "manager"
     sp<IBase>                             mService;
 
     std::vector<sp<IServiceNotification>> mListeners{};
