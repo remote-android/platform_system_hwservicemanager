@@ -34,12 +34,11 @@ Return<bool> TokenManager::unregister(uint64_t token) {
     return true;
 }
 
-Return<void> TokenManager::get(uint64_t token, get_cb _hidl_cb) {
+Return<sp<IBase>> TokenManager::get(uint64_t token) {
     const auto it = mMap.find(token);
 
     if (it == mMap.end()) {
-        _hidl_cb(nullptr);
-        return Void();
+        return nullptr;
     }
 
     const wp<IBase> &wp = it->second;
@@ -47,12 +46,9 @@ Return<void> TokenManager::get(uint64_t token, get_cb _hidl_cb) {
 
     if (strong == nullptr) {
         mMap.erase(it);
-        _hidl_cb(nullptr);
-        return Void();
+        return nullptr;
     }
-
-    _hidl_cb(strong);
-    return Void();
+    return strong;
 }
 
 uint64_t TokenManager::generateToken() {
