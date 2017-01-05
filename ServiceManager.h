@@ -29,9 +29,8 @@ using ::android::wp;
 
 struct ServiceManager : public IServiceManager, hidl_death_recipient {
     // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
-    Return<void> get(const hidl_string& fqName,
-                     const hidl_string& name,
-                     get_cb _hidl_cb)  override;
+    Return<sp<IBase>> get(const hidl_string& fqName,
+                     const hidl_string& name) override;
     Return<bool> add(const hidl_vec<hidl_string>& interfaceChain,
                      const hidl_string& name,
                      const sp<IBase>& service) override;

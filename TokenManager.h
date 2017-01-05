@@ -26,7 +26,7 @@ struct TokenManager : public ITokenManager {
     // Methods from ::android::hidl::token::V1_0::ITokenManager follow.
     Return<uint64_t> createToken(const sp<IBase>& store) override;
     Return<bool> unregister(uint64_t token) override;
-    Return<void> get(uint64_t token, get_cb _hidl_cb) override;
+    Return<sp<IBase>> get(uint64_t token) override;
 
 private:
     uint64_t generateToken();
