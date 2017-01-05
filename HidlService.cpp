@@ -105,7 +105,8 @@ void HidlService::sendRegistrationNotifications() const {
     hidl_string name = mInstanceName;
 
     for (const auto &listener : mListeners) {
-        listener->onRegistration(iface, name, false /* preexisting */);
+        auto ret = listener->onRegistration(iface, name, false /* preexisting */);
+        ret.isOk(); // ignore result
     }
 }
 
