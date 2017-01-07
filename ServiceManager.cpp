@@ -26,54 +26,27 @@ const ServiceManager::InstanceMap &ServiceManager::PackageInterfaceMap::getInsta
     return mInstanceMap;
 }
 
-const HidlService *ServiceManager::PackageInterfaceMap::lookupSupporting(
-        const std::string &name,
-        const hidl_version &version) const {
-    auto range = mInstanceMap.equal_range(name);
+const HidlService *ServiceManager::PackageInterfaceMap::lookup(
+        const std::string &name) const {
+    auto it = mInstanceMap.find(name);
 
-    for (auto it = range.first; it != range.second; ++it) {
-        const std::unique_ptr<HidlService> &service = it->second;
-
-        if (service->supportsVersion(version)) {
-            return service.get();
-        }
+    if (it == mInstanceMap.end()) {
+        return nullptr;
     }
 
-    return nullptr;
+    return it->second.get();
 }
 
-HidlService *ServiceManager::PackageInterfaceMap::lookupSupporting(
-        const std::string &name,
-        const hidl_version &version) {
+HidlService *ServiceManager::PackageInterfaceMap::lookup(
+        const std::string &name) {
 
     return const_cast<HidlService*>(
-        const_cast<const PackageInterfaceMap*>(this)->lookupSupporting(name, version));
-}
-
-HidlService *ServiceManager::PackageInterfaceMap::lookupExact(
-        const std::string &name,
-        const hidl_version &version) {
-
-    auto range = mInstanceMap.equal_range(name);
-
-    for (auto it = range.first; it != range.second; ++it) {
-        std::unique_ptr<HidlService> &service = it->second;
-
-        if (service->getVersion() == version) {
-            return service.get();
-        }
-    }
-
-    return nullptr;
+        const_cast<const PackageInterfaceMap*>(this)->lookup(name));
 }
 
 void ServiceManager::PackageInterfaceMap::insertService(
         std::unique_ptr<HidlService> &&service) {
-
-    hidl_string iface = service->fqName();
-    hidl_string instanceName = service->getName();
-
-    mInstanceMap.insert({service->getName(), std::move(service)});
+    mInstanceMap.insert({service->getInstanceName(), std::move(service)});
 }
 
 void ServiceManager::PackageInterfaceMap::sendPackageRegistrationNotification(
@@ -95,35 +68,29 @@ void ServiceManager::PackageInterfaceMap::addPackageListener(sp<IServiceNotifica
             continue;
         }
 
-        listener->onRegistration(service->fqName(), service->getName(), true /* preexisting */);
+        listener->onRegistration(
+            service->getInterfaceName(),
+            service->getInstanceName(),
+            true /* preexisting */);
     }
 }
 
 // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
 Return<sp<IBase>> ServiceManager::get(const hidl_string& fqName,
                                       const hidl_string& name) {
-
-    std::unique_ptr<HidlService> desired = HidlService::make(fqName, name);
-
-    if (desired == nullptr) {
-        return nullptr;
-    }
-
-    auto ifaceIt = mServiceMap.find(desired->packageInterface());
+    auto ifaceIt = mServiceMap.find(fqName);
     if (ifaceIt == mServiceMap.end()) {
         return nullptr;
     }
 
     const PackageInterfaceMap &ifaceMap = ifaceIt->second;
+    const HidlService *hidlService = ifaceMap.lookup(name);
 
-    const HidlService *hidlService
-        = ifaceMap.lookupSupporting(desired->getName(), desired->getVersion());
-
-    if (hidlService != nullptr) {
-        return hidlService->getService();
-    } else {
+    if (hidlService == nullptr) {
         return nullptr;
     }
+
+    return hidlService->getService();
 }
 
 Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
@@ -137,32 +104,26 @@ Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
     for(size_t i = 0; i < interfaceChain.size(); i++) {
         std::string fqName = interfaceChain[i];
 
-        // TODO: keep track of what the actual underlying child is
-        std::unique_ptr<HidlService> adding = HidlService::make(fqName, name, service);
-
-        if (adding == nullptr) {
-            return false;
-        }
-
-        PackageInterfaceMap &ifaceMap = mServiceMap[adding->packageInterface()];
-
-        HidlService *hidlService
-            = ifaceMap.lookupExact(adding->getName(), adding->getVersion());
+        PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
+        HidlService *hidlService = ifaceMap.lookup(name);
 
         if (hidlService == nullptr) {
-            ifaceMap.insertService(std::move(adding));
+            ifaceMap.insertService(
+                std::make_unique<HidlService>(fqName, name, service));
         } else {
             if (hidlService->getService() != nullptr) {
                 auto ret = hidlService->getService()->unlinkToDeath(this);
                 ret.isOk(); // Ignore result
             }
-            hidlService->setService(adding->getService());
+            hidlService->setService(service);
         }
 
         ifaceMap.sendPackageRegistrationNotification(fqName, name);
     }
+
     auto ret = service->linkToDeath(this, 0 /*cookie*/);
     ret.isOk(); // Ignore result
+
     return true;
 }
 
@@ -195,40 +156,22 @@ Return<void> ServiceManager::list(list_cb _hidl_cb) {
 
 Return<void> ServiceManager::listByInterface(const hidl_string& fqName,
                                              listByInterface_cb _hidl_cb) {
-    std::unique_ptr<HidlService> desired = HidlService::make(fqName, "");
-
-    if (desired == nullptr) {
-        _hidl_cb(hidl_vec<hidl_string>());
-        return Void();
-    }
-
-    auto ifaceIt = mServiceMap.find(desired->packageInterface());
+    auto ifaceIt = mServiceMap.find(fqName);
     if (ifaceIt == mServiceMap.end()) {
         _hidl_cb(hidl_vec<hidl_string>());
         return Void();
     }
 
-    size_t total = 0;
-
     const auto &instanceMap = ifaceIt->second.getInstanceMap();
-    for (const auto &instanceMapping : instanceMap) {
-        const std::unique_ptr<HidlService> &service = instanceMapping.second;
-
-        if (service->supportsVersion(desired->getVersion())) {
-            total += 1;
-        }
-    }
 
     hidl_vec<hidl_string> list;
-    list.resize(total);
+    list.resize(instanceMap.size());
 
     size_t idx = 0;
     for (const auto &serviceMapping : instanceMap) {
         const std::unique_ptr<HidlService> &service = serviceMapping.second;
 
-        if (service->supportsVersion(desired->getVersion())) {
-            list[idx++] = service->getName();
-        }
+        list[idx++] = service->getInstanceName();
     }
 
     _hidl_cb(list);
@@ -242,27 +185,21 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
         return false;
     }
 
-    std::unique_ptr<HidlService> desired = HidlService::make(fqName, name);
-
-    if (desired == nullptr) {
-        return false;
-    }
-
     // TODO(b/31632518) (link to death/automatically deregister)
 
-    PackageInterfaceMap &ifaceMap = mServiceMap[desired->packageInterface()];
+    PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
 
     if (name.empty()) {
         ifaceMap.addPackageListener(callback);
         return true;
     }
 
-    HidlService *service =
-        ifaceMap.lookupSupporting(desired->getName(), desired->getVersion());
+    HidlService *service = ifaceMap.lookup(name);
 
     if (service == nullptr) {
-        desired->addListener(callback);
-        ifaceMap.insertService(std::move(desired));
+        auto adding = std::make_unique<HidlService>(fqName, name, nullptr);
+        adding->addListener(callback);
+        ifaceMap.insertService(std::move(adding));
     } else {
         service->addListener(callback);
     }
@@ -275,8 +212,8 @@ bool ServiceManager::remove(const wp<IBase>& who) {
     for (auto &interfaceMapping : mServiceMap) {
         auto &instanceMap = interfaceMapping.second.getInstanceMap();
 
-        for (auto it = instanceMap.begin(); it != instanceMap.end(); it++) {
-            const std::unique_ptr<HidlService> &service = it->second;
+        for (auto &servicePair : instanceMap) {
+            const std::unique_ptr<HidlService> &service = servicePair.second;
             if (service->getService() == who) {
                 service->setService(nullptr);
                 found = true;
