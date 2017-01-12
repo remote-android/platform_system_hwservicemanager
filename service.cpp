@@ -5,7 +5,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 
-#include <android/hidl/manager/1.0/BnServiceManager.h>
+#include <android/hidl/manager/1.0/BnHwServiceManager.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <android/hidl/token/1.0/ITokenManager.h>
 #include <cutils/properties.h>
@@ -35,7 +35,7 @@ using android::hardware::hidl_string;
 using android::hardware::hidl_vec;
 
 // hidl types
-using android::hidl::manager::V1_0::BnServiceManager;
+using android::hidl::manager::V1_0::BnHwServiceManager;
 using android::hidl::manager::V1_0::IServiceManager;
 using android::hidl::token::V1_0::ITokenManager;
 
@@ -102,7 +102,7 @@ int main() {
     }
 
     // Tell IPCThreadState we're the service manager
-    sp<BnServiceManager> service = new BnServiceManager(manager);
+    sp<BnHwServiceManager> service = new BnHwServiceManager(manager);
     IPCThreadState::self()->setTheContextObject(service);
     // Then tell binder kernel
     ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, 0);
