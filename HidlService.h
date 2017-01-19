@@ -40,7 +40,7 @@ struct HidlService {
     std::string string() const; // e.x. "android.hidl.manager@1.0::IServiceManager/manager"
 
 private:
-    void sendRegistrationNotifications() const;
+    void sendRegistrationNotifications();
 
     const std::string                     mInterfaceName; // e.x. "android.hardware.manager@1.0::IServiceManager"
     const std::string                     mInstanceName;  // e.x. "manager"
