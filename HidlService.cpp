@@ -48,7 +48,7 @@ std::string HidlService::string() const {
     return ss.str();
 }
 
-void HidlService::sendRegistrationNotifications() const {
+void HidlService::sendRegistrationNotifications() {
     if (mListeners.size() == 0 || mService == nullptr) {
         return;
     }
@@ -56,9 +56,13 @@ void HidlService::sendRegistrationNotifications() const {
     hidl_string iface = mInterfaceName;
     hidl_string name = mInstanceName;
 
-    for (const auto &listener : mListeners) {
-        auto ret = listener->onRegistration(iface, name, false /* preexisting */);
-        ret.isOk(); // ignore result
+    for (auto it = mListeners.begin(); it != mListeners.end();) {
+        auto ret = (*it)->onRegistration(iface, name, false /* preexisting */);
+        if (ret.isOk()) {
+            ++it;
+        } else {
+            it = mListeners.erase(it);
+        }
     }
 }
 
