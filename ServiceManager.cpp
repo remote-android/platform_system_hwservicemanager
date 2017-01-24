@@ -133,7 +133,12 @@ Return<void> ServiceManager::list(list_cb _hidl_cb) {
     for (const auto &interfaceMapping : mServiceMap) {
         const auto &instanceMap = interfaceMapping.second.getInstanceMap();
 
-        total += instanceMap.size();
+        for (const auto &instanceMapping : instanceMap) {
+            const std::unique_ptr<HidlService> &service = instanceMapping.second;
+            if (service->getService() == nullptr) continue;
+
+            ++total;
+        }
     }
 
     hidl_vec<hidl_string> list;
@@ -145,6 +150,7 @@ Return<void> ServiceManager::list(list_cb _hidl_cb) {
 
         for (const auto &instanceMapping : instanceMap) {
             const std::unique_ptr<HidlService> &service = instanceMapping.second;
+            if (service->getService() == nullptr) continue;
 
             list[idx++] = service->string();
         }
@@ -165,11 +171,20 @@ Return<void> ServiceManager::listByInterface(const hidl_string& fqName,
     const auto &instanceMap = ifaceIt->second.getInstanceMap();
 
     hidl_vec<hidl_string> list;
-    list.resize(instanceMap.size());
+
+    size_t total = 0;
+    for (const auto &serviceMapping : instanceMap) {
+        const std::unique_ptr<HidlService> &service = serviceMapping.second;
+        if (service->getService() == nullptr) continue;
+
+        ++total;
+    }
+    list.resize(total);
 
     size_t idx = 0;
     for (const auto &serviceMapping : instanceMap) {
         const std::unique_ptr<HidlService> &service = serviceMapping.second;
+        if (service->getService() == nullptr) continue;
 
         list[idx++] = service->getInstanceName();
     }
