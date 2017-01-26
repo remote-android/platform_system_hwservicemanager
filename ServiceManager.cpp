@@ -13,6 +13,27 @@ namespace manager {
 namespace V1_0 {
 namespace implementation {
 
+size_t ServiceManager::countExistingService() const {
+    size_t total = 0;
+    forEachExistingService([&] (const HidlService *) {
+        ++total;
+    });
+    return total;
+}
+
+void ServiceManager::forEachExistingService(std::function<void(const HidlService *)> f) const {
+    for (const auto &interfaceMapping : mServiceMap) {
+        const auto &instanceMap = interfaceMapping.second.getInstanceMap();
+
+        for (const auto &instanceMapping : instanceMap) {
+            const std::unique_ptr<HidlService> &service = instanceMapping.second;
+            if (service->getService() == nullptr) continue;
+
+            f(service.get());
+        }
+    }
+}
+
 void ServiceManager::serviceDied(uint64_t /*cookie*/, const wp<IBase>& who) {
     // TODO(b/32837397)
     remove(who);
@@ -128,33 +149,14 @@ Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
 }
 
 Return<void> ServiceManager::list(list_cb _hidl_cb) {
-    size_t total = 0;
-
-    for (const auto &interfaceMapping : mServiceMap) {
-        const auto &instanceMap = interfaceMapping.second.getInstanceMap();
-
-        for (const auto &instanceMapping : instanceMap) {
-            const std::unique_ptr<HidlService> &service = instanceMapping.second;
-            if (service->getService() == nullptr) continue;
-
-            ++total;
-        }
-    }
 
     hidl_vec<hidl_string> list;
-    list.resize(total);
+    list.resize(countExistingService());
 
     size_t idx = 0;
-    for (const auto &interfaceMapping : mServiceMap) {
-        const auto &instanceMap = interfaceMapping.second.getInstanceMap();
-
-        for (const auto &instanceMapping : instanceMap) {
-            const std::unique_ptr<HidlService> &service = instanceMapping.second;
-            if (service->getService() == nullptr) continue;
-
-            list[idx++] = service->string();
-        }
-    }
+    forEachExistingService([&] (const HidlService *service) {
+        list[idx++] = service->string();
+    });
 
     _hidl_cb(list);
     return Void();
@@ -222,6 +224,24 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
     return true;
 }
 
+Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
+
+    hidl_vec<IServiceManager::InstanceDebugInfo> list;
+    list.resize(countExistingService());
+
+    size_t idx = 0;
+    forEachExistingService([&] (const HidlService *service) {
+        list[idx++] = {
+            .interfaceName = service->getInterfaceName(),
+            .instanceName = service->getInstanceName(),
+            .refCount = service->getServiceStrongCount(),
+        };
+    });
+
+    _cb(list);
+    return Void();
+}
+
 bool ServiceManager::remove(const wp<IBase>& who) {
     bool found = false;
     for (auto &interfaceMapping : mServiceMap) {
@@ -237,6 +257,7 @@ bool ServiceManager::remove(const wp<IBase>& who) {
     }
     return found;
 }
+
 } // namespace implementation
 }  // namespace V1_0
 }  // namespace manager

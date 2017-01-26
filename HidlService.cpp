@@ -66,6 +66,10 @@ void HidlService::sendRegistrationNotifications() {
     }
 }
 
+size_t HidlService::getServiceStrongCount() const {
+    return mService->getStrongCount();
+}
+
 }  // namespace implementation
 }  // namespace V1_0
 }  // namespace manager
