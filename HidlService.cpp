@@ -38,7 +38,9 @@ void HidlService::addListener(const sp<IServiceNotification> &listener) {
     mListeners.push_back(listener);
 
     if (mService != nullptr) {
-        listener->onRegistration(mInterfaceName, mInstanceName, true /* preexisting */);
+        auto ret = listener->onRegistration(
+            mInterfaceName, mInstanceName, true /* preexisting */);
+        ret.isOk(); // ignore
     }
 }
 

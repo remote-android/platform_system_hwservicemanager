@@ -89,10 +89,11 @@ void ServiceManager::PackageInterfaceMap::addPackageListener(sp<IServiceNotifica
             continue;
         }
 
-        listener->onRegistration(
+        auto ret = listener->onRegistration(
             service->getInterfaceName(),
             service->getInstanceName(),
             true /* preexisting */);
+        ret.isOk(); // ignore
     }
 }
 
@@ -134,7 +135,7 @@ Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
         } else {
             if (hidlService->getService() != nullptr) {
                 auto ret = hidlService->getService()->unlinkToDeath(this);
-                ret.isOk(); // Ignore result
+                ret.isOk(); // ignore
             }
             hidlService->setService(service);
         }
@@ -143,7 +144,7 @@ Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
     }
 
     auto ret = service->linkToDeath(this, 0 /*cookie*/);
-    ret.isOk(); // Ignore result
+    ret.isOk(); // ignore
 
     return true;
 }
