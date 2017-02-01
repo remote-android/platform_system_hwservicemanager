@@ -232,10 +232,14 @@ Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
 
     size_t idx = 0;
     forEachExistingService([&] (const HidlService *service) {
+        int32_t count = -1;
+        auto ret = service->getService()->getReferenceInfo([&] (const auto &refInfo) {
+            count = refInfo.refCount;
+        });
         list[idx++] = {
             .interfaceName = service->getInterfaceName(),
             .instanceName = service->getInstanceName(),
-            .refCount = service->getServiceStrongCount(),
+            .refCount = ret.isOk() ? count : -1
         };
     });
 
