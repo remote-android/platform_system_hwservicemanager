@@ -39,9 +39,6 @@ struct HidlService {
 
     std::string string() const; // e.x. "android.hidl.manager@1.0::IServiceManager/manager"
 
-    /* for debugging purposes only. */
-    size_t getServiceStrongCount() const;
-
 private:
     void sendRegistrationNotifications();
 
