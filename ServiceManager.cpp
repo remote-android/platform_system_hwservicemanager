@@ -232,14 +232,17 @@ Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
 
     size_t idx = 0;
     forEachExistingService([&] (const HidlService *service) {
-        int32_t count = -1;
-        auto ret = service->getService()->getReferenceInfo([&] (const auto &refInfo) {
-            count = refInfo.refCount;
+        int32_t pid = -1;
+        uint64_t ptr = 0;
+        auto ret = service->getService()->getDebugInfo([&] (const auto &debugInfo) {
+            pid = debugInfo.pid;
+            ptr = debugInfo.ptr;
         });
         list[idx++] = {
             .interfaceName = service->getInterfaceName(),
             .instanceName = service->getInstanceName(),
-            .refCount = ret.isOk() ? count : -1
+            .pid = ret.isOk() ? pid : -1,
+            .ptr = ret.isOk() ? ptr : 0
         };
     });
 
