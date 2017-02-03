@@ -234,15 +234,20 @@ Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
     forEachExistingService([&] (const HidlService *service) {
         int32_t pid = -1;
         uint64_t ptr = 0;
-        auto ret = service->getService()->getDebugInfo([&] (const auto &debugInfo) {
-            pid = debugInfo.pid;
-            ptr = debugInfo.ptr;
-        });
+        if (service->getService().get() == static_cast<IBase *>(this)) {
+            pid = getpid();
+            ptr = 0;
+        } else {
+            service->getService()->getDebugInfo([&] (const auto &debugInfo) {
+                pid = debugInfo.pid;
+                ptr = debugInfo.ptr;
+            }).isOk(); // ignored; pid and ptr will remain -1 and 0 if error.
+        }
         list[idx++] = {
             .interfaceName = service->getInterfaceName(),
             .instanceName = service->getInstanceName(),
-            .pid = ret.isOk() ? pid : -1,
-            .ptr = ret.isOk() ? ptr : 0
+            .pid = pid,
+            .ptr = ptr
         };
     });
 
