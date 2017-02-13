@@ -22,14 +22,20 @@ size_t ServiceManager::countExistingService() const {
 }
 
 void ServiceManager::forEachExistingService(std::function<void(const HidlService *)> f) const {
+    forEachServiceEntry([f] (const HidlService *service) {
+        if (service->getService() == nullptr) {
+            return;
+        }
+        f(service);
+    });
+}
+
+void ServiceManager::forEachServiceEntry(std::function<void(const HidlService *)> f) const {
     for (const auto &interfaceMapping : mServiceMap) {
         const auto &instanceMap = interfaceMapping.second.getInstanceMap();
 
         for (const auto &instanceMapping : instanceMap) {
-            const std::unique_ptr<HidlService> &service = instanceMapping.second;
-            if (service->getService() == nullptr) continue;
-
-            f(service.get());
+            f(instanceMapping.second.get());
         }
     }
 }
@@ -227,31 +233,51 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
 
 Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
 
-    hidl_vec<IServiceManager::InstanceDebugInfo> list;
-    list.resize(countExistingService());
-
-    size_t idx = 0;
-    forEachExistingService([&] (const HidlService *service) {
-        int32_t pid = -1;
-        uint64_t ptr = 0;
-        if (service->getService().get() == static_cast<IBase *>(this)) {
-            pid = getpid();
-            ptr = 0;
-        } else {
-            service->getService()->getDebugInfo([&] (const auto &debugInfo) {
-                pid = debugInfo.pid;
-                ptr = debugInfo.ptr;
-            }).isOk(); // ignored; pid and ptr will remain -1 and 0 if error.
+    std::vector<IServiceManager::InstanceDebugInfo> list;
+    forEachServiceEntry([&] (const HidlService *service) {
+        if (service->getPassthroughClients().empty()) {
+            return; // continue to next service
         }
-        list[idx++] = {
+        hidl_vec<int32_t> clientPids;
+        clientPids.resize(service->getPassthroughClients().size());
+
+        size_t i = 0;
+        for (pid_t p : service->getPassthroughClients()) {
+            clientPids[i++] = p;
+        }
+
+        list.push_back({
             .interfaceName = service->getInterfaceName(),
             .instanceName = service->getInstanceName(),
-            .pid = pid,
-            .ptr = ptr
-        };
+            .clientPids = clientPids
+        });
     });
 
     _cb(list);
+    return Void();
+}
+
+
+Return<void> ServiceManager::registerPassthroughClient(const hidl_string &fqName,
+        const hidl_string &name, int32_t pid) {
+
+    PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
+
+    if (name.empty()) {
+        LOG(WARNING) << "registerPassthroughClient encounters empty instance name for "
+                     << fqName.c_str();
+        return Void();
+    }
+
+    HidlService *service = ifaceMap.lookup(name);
+
+    if (service == nullptr) {
+        auto adding = std::make_unique<HidlService>(fqName, name, nullptr);
+        adding->registerPassthroughClient(pid);
+        ifaceMap.insertService(std::move(adding));
+    } else {
+        service->registerPassthroughClient(pid);
+    }
     return Void();
 }
 
