@@ -1,11 +1,11 @@
 #ifndef ANDROID_HARDWARE_MANAGER_V1_0_HIDLSERVICE_H
 #define ANDROID_HARDWARE_MANAGER_V1_0_HIDLSERVICE_H
 
+#include <set>
+
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <hidl/Status.h>
 #include <hidl/MQDescriptor.h>
-#include <map>
-#include <unordered_map>
 
 namespace android {
 namespace hidl {
@@ -36,8 +36,10 @@ struct HidlService {
     const std::string &getInstanceName() const;
 
     void addListener(const sp<IServiceNotification> &listener);
+    void registerPassthroughClient(pid_t pid);
 
     std::string string() const; // e.x. "android.hidl.manager@1.0::IServiceManager/manager"
+    const std::set<pid_t> &getPassthroughClients() const;
 
 private:
     void sendRegistrationNotifications();
@@ -47,6 +49,7 @@ private:
     sp<IBase>                             mService;
 
     std::vector<sp<IServiceNotification>> mListeners{};
+    std::set<pid_t>                       mPassthroughClients{};
 };
 
 }  // namespace implementation
