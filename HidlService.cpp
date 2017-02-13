@@ -44,6 +44,14 @@ void HidlService::addListener(const sp<IServiceNotification> &listener) {
     }
 }
 
+void HidlService::registerPassthroughClient(pid_t pid) {
+    mPassthroughClients.insert(pid);
+}
+
+const std::set<pid_t> &HidlService::getPassthroughClients() const {
+    return mPassthroughClients;
+}
+
 std::string HidlService::string() const {
     std::stringstream ss;
     ss << mInterfaceName << "/" << mInstanceName;

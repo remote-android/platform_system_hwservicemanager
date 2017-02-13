@@ -42,12 +42,15 @@ struct ServiceManager : public IServiceManager, hidl_death_recipient {
                                           const sp<IServiceNotification>& callback) override;
 
     Return<void> debugDump(debugDump_cb _cb) override;
+    Return<void> registerPassthroughClient(const hidl_string &fqName,
+            const hidl_string &name, int32_t pid) override;
 
     virtual void serviceDied(uint64_t cookie, const wp<IBase>& who);
 private:
     bool remove(const wp<IBase>& who);
     size_t countExistingService() const;
     void forEachExistingService(std::function<void(const HidlService *)> f) const;
+    void forEachServiceEntry(std::function<void(const HidlService *)> f) const;
 
     using InstanceMap = std::map<
             std::string, // instance name e.x. "manager"
