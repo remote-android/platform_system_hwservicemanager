@@ -43,7 +43,7 @@ using android::hidl::token::V1_0::ITokenManager;
 using android::hidl::manager::V1_0::implementation::ServiceManager;
 using android::hidl::token::V1_0::implementation::TokenManager;
 
-static std::string serviceName = "manager";
+static std::string serviceName = "default";
 
 class BinderCallback : public LooperCallback {
 public:
