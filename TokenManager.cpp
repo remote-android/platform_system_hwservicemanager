@@ -19,7 +19,7 @@ Return<uint64_t> TokenManager::createToken(const sp<IBase>& store) {
         token = generateToken();
     } while (mMap.find(token) != mMap.end()); // unlikely to ever happen
 
-    mMap[token] = wp<IBase>(store);
+    mMap[token] = store;
     return token;
 }
 
@@ -41,14 +41,7 @@ Return<sp<IBase>> TokenManager::get(uint64_t token) {
         return nullptr;
     }
 
-    const wp<IBase> &wp = it->second;
-    const sp<IBase> strong = wp.promote();
-
-    if (strong == nullptr) {
-        mMap.erase(it);
-        return nullptr;
-    }
-    return strong;
+    return it->second;
 }
 
 uint64_t TokenManager::generateToken() {

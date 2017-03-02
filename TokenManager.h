@@ -32,7 +32,7 @@ private:
     uint64_t generateToken();
 
     // TODO(b/33843007): periodic pruning of mMap
-    std::unordered_map<uint64_t, wp<IBase>> mMap;
+    std::unordered_map<uint64_t, sp<IBase>> mMap;
 
     uint64_t mTokenIndex;
     uint64_t mSalt = std::chrono::duration_cast<std::chrono::nanoseconds>(
