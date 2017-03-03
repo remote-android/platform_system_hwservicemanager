@@ -232,7 +232,6 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
 }
 
 Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
-
     std::vector<IServiceManager::InstanceDebugInfo> list;
     forEachServiceEntry([&] (const HidlService *service) {
         if (service->getPassthroughClients().empty()) {
@@ -249,7 +248,8 @@ Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
         list.push_back({
             .interfaceName = service->getInterfaceName(),
             .instanceName = service->getInstanceName(),
-            .clientPids = clientPids
+            .clientPids = clientPids,
+            .arch = ::android::hidl::base::V1_0::DebugInfo::Architecture::UNKNOWN
         });
     });
 
