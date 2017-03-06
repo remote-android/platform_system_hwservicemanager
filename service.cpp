@@ -61,20 +61,15 @@ int main() {
 
     ServiceManager *manager = new ServiceManager();
 
-    manager->interfaceChain([&](const auto &chain) {
-        if (!manager->add(chain, serviceName, manager)) {
-            ALOGE("Failed to register hwservicemanager with itself.");
-        }
-    });
+    if (!manager->add(serviceName, manager)) {
+        ALOGE("Failed to register hwservicemanager with itself.");
+    }
 
     TokenManager *tokenManager = new TokenManager();
 
-    hidl_vec<hidl_string> tokenChain;
-    tokenManager->interfaceChain([&](const auto &chain) {
-        if (!manager->add(chain, serviceName, tokenManager)) {
-            ALOGE("Failed to register ITokenManager with hwservicemanager.");
-        }
-    });
+    if (!manager->add(serviceName, tokenManager)) {
+        ALOGE("Failed to register ITokenManager with hwservicemanager.");
+    }
 
     sp<Looper> looper(Looper::prepare(0 /* opts */));
 
