@@ -121,38 +121,50 @@ Return<sp<IBase>> ServiceManager::get(const hidl_string& fqName,
     return hidlService->getService();
 }
 
-Return<bool> ServiceManager::add(const hidl_vec<hidl_string>& interfaceChain,
-                                 const hidl_string& name,
-                                 const sp<IBase>& service) {
+Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& service) {
+    bool isValidService = false;
 
-    if (interfaceChain.size() == 0 || service == nullptr) {
+    if (service == nullptr) {
         return false;
     }
 
-    for(size_t i = 0; i < interfaceChain.size(); i++) {
-        std::string fqName = interfaceChain[i];
-
-        PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
-        HidlService *hidlService = ifaceMap.lookup(name);
-
-        if (hidlService == nullptr) {
-            ifaceMap.insertService(
-                std::make_unique<HidlService>(fqName, name, service));
-        } else {
-            if (hidlService->getService() != nullptr) {
-                auto ret = hidlService->getService()->unlinkToDeath(this);
-                ret.isOk(); // ignore
-            }
-            hidlService->setService(service);
+    auto ret = service->interfaceChain([&](const auto &interfaceChain) {
+        if (interfaceChain.size() == 0) {
+            return;
         }
 
-        ifaceMap.sendPackageRegistrationNotification(fqName, name);
+        for(size_t i = 0; i < interfaceChain.size(); i++) {
+            std::string fqName = interfaceChain[i];
+
+            PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
+            HidlService *hidlService = ifaceMap.lookup(name);
+
+            if (hidlService == nullptr) {
+                ifaceMap.insertService(
+                    std::make_unique<HidlService>(fqName, name, service));
+            } else {
+                if (hidlService->getService() != nullptr) {
+                    auto ret = hidlService->getService()->unlinkToDeath(this);
+                    ret.isOk(); // ignore
+                }
+                hidlService->setService(service);
+            }
+
+            ifaceMap.sendPackageRegistrationNotification(fqName, name);
+        }
+
+        auto linkRet = service->linkToDeath(this, 0 /*cookie*/);
+        linkRet.isOk(); // ignore
+
+        isValidService = true;
+    });
+
+    if (!ret.isOk()) {
+        LOG(ERROR) << "Failed to retrieve interface chain.";
+        return false;
     }
 
-    auto ret = service->linkToDeath(this, 0 /*cookie*/);
-    ret.isOk(); // ignore
-
-    return true;
+    return isValidService;
 }
 
 Return<void> ServiceManager::list(list_cb _hidl_cb) {

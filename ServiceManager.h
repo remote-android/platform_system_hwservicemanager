@@ -29,8 +29,7 @@ struct ServiceManager : public IServiceManager, hidl_death_recipient {
     // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
     Return<sp<IBase>> get(const hidl_string& fqName,
                      const hidl_string& name) override;
-    Return<bool> add(const hidl_vec<hidl_string>& interfaceChain,
-                     const hidl_string& name,
+    Return<bool> add(const hidl_string& name,
                      const sp<IBase>& service) override;
 
     Return<void> list(list_cb _hidl_cb) override;
