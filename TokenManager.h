@@ -31,7 +31,6 @@ struct TokenManager : public ITokenManager {
 private:
     uint64_t generateToken();
 
-    // TODO(b/33843007): periodic pruning of mMap
     std::unordered_map<uint64_t, sp<IBase>> mMap;
 
     uint64_t mTokenIndex;
