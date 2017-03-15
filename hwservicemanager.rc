@@ -3,6 +3,8 @@ service hwservicemanager /system/bin/hwservicemanager
     disabled
     group system readproc
     critical
+    onrestart class_reset hal
+    onrestart setprop hwservicemanager.ready false
     writepid /dev/cpuset/system-background/tasks
 
 on property:hwservicemanager.ready=true
