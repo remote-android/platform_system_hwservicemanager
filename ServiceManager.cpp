@@ -3,9 +3,12 @@
 #include "ServiceManager.h"
 
 #include <android-base/logging.h>
+#include <hwbinder/IPCThreadState.h>
 #include <hidl/HidlSupport.h>
 #include <regex>
 #include <sstream>
+
+using android::hardware::IPCThreadState;
 
 namespace android {
 namespace hidl {
@@ -128,6 +131,10 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
         return false;
     }
 
+    // TODO(b/34235311): use HIDL way to determine this
+    // also, this assumes that the PID that is registering is the pid that is the service
+    pid_t pid = IPCThreadState::self()->getCallingPid();
+
     auto ret = service->interfaceChain([&](const auto &interfaceChain) {
         if (interfaceChain.size() == 0) {
             return;
@@ -141,13 +148,13 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
 
             if (hidlService == nullptr) {
                 ifaceMap.insertService(
-                    std::make_unique<HidlService>(fqName, name, service));
+                    std::make_unique<HidlService>(fqName, name, service, pid));
             } else {
                 if (hidlService->getService() != nullptr) {
                     auto ret = hidlService->getService()->unlinkToDeath(this);
                     ret.isOk(); // ignore
                 }
-                hidlService->setService(service);
+                hidlService->setService(service, pid);
             }
 
             ifaceMap.sendPackageRegistrationNotification(fqName, name);
@@ -233,7 +240,7 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
     HidlService *service = ifaceMap.lookup(name);
 
     if (service == nullptr) {
-        auto adding = std::make_unique<HidlService>(fqName, name, nullptr);
+        auto adding = std::make_unique<HidlService>(fqName, name);
         adding->addListener(callback);
         ifaceMap.insertService(std::move(adding));
     } else {
@@ -246,9 +253,6 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
 Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
     std::vector<IServiceManager::InstanceDebugInfo> list;
     forEachServiceEntry([&] (const HidlService *service) {
-        if (service->getPassthroughClients().empty()) {
-            return; // continue to next service
-        }
         hidl_vec<int32_t> clientPids;
         clientPids.resize(service->getPassthroughClients().size());
 
@@ -258,6 +262,7 @@ Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
         }
 
         list.push_back({
+            .pid = service->getPid(),
             .interfaceName = service->getInterfaceName(),
             .instanceName = service->getInstanceName(),
             .clientPids = clientPids,
@@ -284,7 +289,7 @@ Return<void> ServiceManager::registerPassthroughClient(const hidl_string &fqName
     HidlService *service = ifaceMap.lookup(name);
 
     if (service == nullptr) {
-        auto adding = std::make_unique<HidlService>(fqName, name, nullptr);
+        auto adding = std::make_unique<HidlService>(fqName, name);
         adding->registerPassthroughClient(pid);
         ifaceMap.insertService(std::move(adding));
     } else {
@@ -301,7 +306,7 @@ bool ServiceManager::remove(const wp<IBase>& who) {
         for (auto &servicePair : instanceMap) {
             const std::unique_ptr<HidlService> &service = servicePair.second;
             if (service->getService() == who) {
-                service->setService(nullptr);
+                service->setService(nullptr, static_cast<pid_t>(IServiceManager::PidConstant::NO_PID));
                 found = true;
             }
         }
