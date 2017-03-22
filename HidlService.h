@@ -24,14 +24,24 @@ using ::android::sp;
 struct HidlService {
     HidlService(const std::string &interfaceName,
                 const std::string &instanceName,
-                const sp<IBase> &service);
+                const sp<IBase> &service,
+                const pid_t pid);
+    HidlService(const std::string &interfaceName,
+                const std::string &instanceName)
+    : HidlService(
+        interfaceName,
+        instanceName,
+        nullptr,
+        static_cast<pid_t>(IServiceManager::PidConstant::NO_PID))
+    {}
 
     /**
      * Note, getService() can be nullptr. This is because you can have a HidlService
      * with registered IServiceNotification objects but no service registered yet.
      */
     sp<IBase> getService() const;
-    void setService(sp<IBase> service);
+    void setService(sp<IBase> service, pid_t pid);
+    pid_t getPid() const;
     const std::string &getInterfaceName() const;
     const std::string &getInstanceName() const;
 
@@ -50,6 +60,7 @@ private:
 
     std::vector<sp<IServiceNotification>> mListeners{};
     std::set<pid_t>                       mPassthroughClients{};
+    pid_t                                 mPid = static_cast<pid_t>(IServiceManager::PidConstant::NO_PID);
 };
 
 }  // namespace implementation
