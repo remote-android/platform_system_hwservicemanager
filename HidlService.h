@@ -46,6 +46,7 @@ struct HidlService {
     const std::string &getInstanceName() const;
 
     void addListener(const sp<IServiceNotification> &listener);
+    bool removeListener(const wp<IBase> &listener);
     void registerPassthroughClient(pid_t pid);
 
     std::string string() const; // e.x. "android.hidl.manager@1.0::IServiceManager/manager"
