@@ -16,6 +16,10 @@ namespace manager {
 namespace V1_0 {
 namespace implementation {
 
+static constexpr uint64_t kServiceDiedCookie = 0;
+static constexpr uint64_t kPackageListenerDiedCookie = 1;
+static constexpr uint64_t kServiceListenerDiedCookie = 2;
+
 size_t ServiceManager::countExistingService() const {
     size_t total = 0;
     forEachExistingService([&] (const HidlService *) {
@@ -43,9 +47,18 @@ void ServiceManager::forEachServiceEntry(std::function<void(const HidlService *)
     }
 }
 
-void ServiceManager::serviceDied(uint64_t /*cookie*/, const wp<IBase>& who) {
-    // TODO(b/32837397)
-    remove(who);
+void ServiceManager::serviceDied(uint64_t cookie, const wp<IBase>& who) {
+    switch (cookie) {
+        case kServiceDiedCookie:
+            remove(who);
+            break;
+        case kPackageListenerDiedCookie:
+            removePackageListener(who);
+            break;
+        case kServiceListenerDiedCookie:
+            removeServiceListener(who);
+            break;
+    }
 }
 
 ServiceManager::InstanceMap &ServiceManager::PackageInterfaceMap::getInstanceMap() {
@@ -81,16 +94,21 @@ void ServiceManager::PackageInterfaceMap::insertService(
 
 void ServiceManager::PackageInterfaceMap::sendPackageRegistrationNotification(
         const hidl_string &fqName,
-        const hidl_string &instanceName) const {
+        const hidl_string &instanceName) {
 
-    for (const auto &listener : mPackageListeners) {
-        auto ret = listener->onRegistration(fqName, instanceName, false /* preexisting */);
-        ret.isOk(); // ignore
+    for (auto it = mPackageListeners.begin(); it != mPackageListeners.end();) {
+        auto ret = (*it)->onRegistration(fqName, instanceName, false /* preexisting */);
+        if (ret.isOk()) {
+            ++it;
+        } else {
+            LOG(ERROR) << "Dropping registration callback for " << fqName << "/" << instanceName
+                       << ": transport error.";
+            it = mPackageListeners.erase(it);
+        }
     }
 }
-void ServiceManager::PackageInterfaceMap::addPackageListener(sp<IServiceNotification> listener) {
-    mPackageListeners.push_back(listener);
 
+void ServiceManager::PackageInterfaceMap::addPackageListener(sp<IServiceNotification> listener) {
     for (const auto &instanceMapping : mInstanceMap) {
         const std::unique_ptr<HidlService> &service = instanceMapping.second;
 
@@ -102,8 +120,29 @@ void ServiceManager::PackageInterfaceMap::addPackageListener(sp<IServiceNotifica
             service->getInterfaceName(),
             service->getInstanceName(),
             true /* preexisting */);
-        ret.isOk(); // ignore
+        if (!ret.isOk()) {
+            LOG(ERROR) << "Not adding package listener for " << service->getInterfaceName()
+                       << "/" << service->getInstanceName() << ": transport error "
+                       << "when sending notification for already registered instance.";
+            return;
+        }
     }
+    mPackageListeners.push_back(listener);
+}
+
+bool ServiceManager::PackageInterfaceMap::removePackageListener(const wp<IBase>& who) {
+    bool found = false;
+
+    for (auto it = mPackageListeners.begin(); it != mPackageListeners.end();) {
+        if (*it == who) {
+            it = mPackageListeners.erase(it);
+            found = true;
+        } else {
+            ++it;
+        }
+    }
+
+    return found;
 }
 
 // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
@@ -228,16 +267,25 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
         return false;
     }
 
-    // TODO(b/31632518) (link to death/automatically deregister)
-
     PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
 
     if (name.empty()) {
+        auto ret = callback->linkToDeath(this, kPackageListenerDiedCookie /*cookie*/);
+        if (!ret.isOk()) {
+            LOG(ERROR) << "Failed to register death recipient for " << fqName << "/" << name;
+            return false;
+        }
         ifaceMap.addPackageListener(callback);
         return true;
     }
 
     HidlService *service = ifaceMap.lookup(name);
+
+    auto ret = callback->linkToDeath(this, kServiceListenerDiedCookie);
+    if (!ret.isOk()) {
+        LOG(ERROR) << "Failed to register death recipient for " << fqName << "/" << name;
+        return false;
+    }
 
     if (service == nullptr) {
         auto adding = std::make_unique<HidlService>(fqName, name);
@@ -314,6 +362,28 @@ bool ServiceManager::remove(const wp<IBase>& who) {
     return found;
 }
 
+bool ServiceManager::removePackageListener(const wp<IBase>& who) {
+    bool found = false;
+
+    for (auto &interfaceMapping : mServiceMap) {
+        found |= interfaceMapping.second.removePackageListener(who);
+    }
+
+    return found;
+}
+
+bool ServiceManager::removeServiceListener(const wp<IBase>& who) {
+    bool found = false;
+    for (auto &interfaceMapping : mServiceMap) {
+        auto &instanceMap = interfaceMapping.second.getInstanceMap();
+
+        for (auto &servicePair : instanceMap) {
+            const std::unique_ptr<HidlService> &service = servicePair.second;
+            found |= service->removeListener(who);
+        }
+    }
+    return found;
+}
 } // namespace implementation
 }  // namespace V1_0
 }  // namespace manager
