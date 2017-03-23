@@ -47,6 +47,8 @@ struct ServiceManager : public IServiceManager, hidl_death_recipient {
     virtual void serviceDied(uint64_t cookie, const wp<IBase>& who);
 private:
     bool remove(const wp<IBase>& who);
+    bool removePackageListener(const wp<IBase>& who);
+    bool removeServiceListener(const wp<IBase>& who);
     size_t countExistingService() const;
     void forEachExistingService(std::function<void(const HidlService *)> f) const;
     void forEachServiceEntry(std::function<void(const HidlService *)> f) const;
@@ -74,10 +76,11 @@ private:
         void insertService(std::unique_ptr<HidlService> &&service);
 
         void addPackageListener(sp<IServiceNotification> listener);
+        bool removePackageListener(const wp<IBase>& who);
 
         void sendPackageRegistrationNotification(
             const hidl_string &fqName,
-            const hidl_string &instanceName) const;
+            const hidl_string &instanceName);
 
     private:
         InstanceMap mInstanceMap{};
