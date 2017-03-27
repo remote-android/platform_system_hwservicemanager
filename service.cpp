@@ -77,15 +77,15 @@ int main() {
 
     IPCThreadState::self()->setupPolling(&binder_fd);
     if (binder_fd < 0) {
-        ALOGE("Failed to aquire binder FD.");
+        ALOGE("Failed to aquire binder FD. Aborting...");
         return -1;
     }
 
     sp<BinderCallback> cb(new BinderCallback);
     if (looper->addFd(binder_fd, Looper::POLL_CALLBACK, Looper::EVENT_INPUT, cb,
-                    nullptr) != 1) {
-    ALOGE("Failed to add binder FD to Looper");
-    return -1;
+            nullptr) != 1) {
+        ALOGE("Failed to add hwbinder FD to Looper. Aborting...");
+        return -1;
     }
 
     // Tell IPCThreadState we're the service manager
@@ -104,8 +104,8 @@ int main() {
 
     rc = property_set("hwservicemanager.ready", "true");
     if (rc) {
-    ALOGE("Failed to set \"hwservicemanager.ready\" (error %d). "\
-          "HAL services will not launch!\n", rc);
+        ALOGE("Failed to set \"hwservicemanager.ready\" (error %d). "\
+              "HAL services will not start!\n", rc);
     }
 
     while (true) {
