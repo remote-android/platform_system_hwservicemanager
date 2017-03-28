@@ -80,6 +80,9 @@ int main() {
         ALOGE("Failed to aquire binder FD. Aborting...");
         return -1;
     }
+    // Flush after setupPolling(), to make sure the binder driver
+    // knows about this thread handling commands.
+    IPCThreadState::self()->flushCommands();
 
     sp<BinderCallback> cb(new BinderCallback);
     if (looper->addFd(binder_fd, Looper::POLL_CALLBACK, Looper::EVENT_INPUT, cb,
