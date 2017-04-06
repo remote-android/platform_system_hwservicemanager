@@ -4,6 +4,7 @@
 
 #include <android-base/logging.h>
 #include <functional>
+#include <log/log.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 
