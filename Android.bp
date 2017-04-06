@@ -22,6 +22,7 @@ cc_binary {
         "ServiceManager.cpp",
         "service.cpp",
         "TokenManager.cpp",
+        "Vintf.cpp",
     ],
     cflags: [
         "-Wall",
@@ -35,13 +36,12 @@ cc_binary {
         "libcutils",
         "libhidlbase",
         "libhidltransport", // TODO(b/33276472#6) includes android.hidl.manager@1.0
+        "libhidl-gen-utils",
         "libhwbinder",
         "liblog",
         "libselinux",
         "libutils",
-    ],
-    export_shared_lib_headers: [
-        "libhwbinder"
+        "libvintf",
     ],
     product_variables: {
         binder32bit: {

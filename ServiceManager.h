@@ -28,9 +28,12 @@ using ::android::wp;
 struct ServiceManager : public IServiceManager, hidl_death_recipient {
     // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
     Return<sp<IBase>> get(const hidl_string& fqName,
-                     const hidl_string& name) override;
+                          const hidl_string& name) override;
     Return<bool> add(const hidl_string& name,
                      const sp<IBase>& service) override;
+
+    Return<Transport> getTransport(const hidl_string& fqName,
+                                   const hidl_string& name);
 
     Return<void> list(list_cb _hidl_cb) override;
     Return<void> listByInterface(const hidl_string& fqInstanceName,
