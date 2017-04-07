@@ -1,6 +1,7 @@
 #define LOG_TAG "hwservicemanager"
 
 #include "ServiceManager.h"
+#include "Vintf.h"
 
 #include <android-base/logging.h>
 #include <hwbinder/IPCThreadState.h>
@@ -211,6 +212,21 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
     }
 
     return isValidService;
+}
+
+Return<ServiceManager::Transport> ServiceManager::getTransport(const hidl_string& fqName,
+                                                               const hidl_string& name) {
+    using ::android::hardware::getTransport;
+
+    switch (getTransport(fqName, name)) {
+        case vintf::Transport::HWBINDER:
+             return Transport::HWBINDER;
+        case vintf::Transport::PASSTHROUGH:
+             return Transport::PASSTHROUGH;
+        case vintf::Transport::EMPTY:
+        default:
+             return Transport::EMPTY;
+    }
 }
 
 Return<void> ServiceManager::list(list_cb _hidl_cb) {
