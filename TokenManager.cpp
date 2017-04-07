@@ -14,8 +14,26 @@ namespace token {
 namespace V1_0 {
 namespace implementation {
 
+static void ReadRandomBytes(uint8_t *buf, size_t len) {
+    int fd = TEMP_FAILURE_RETRY(open("/dev/urandom", O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+    if (fd == -1) {
+        ALOGE("%s: cannot read /dev/urandom", __func__);
+        return;
+    }
+
+    size_t n;
+    while ((n = TEMP_FAILURE_RETRY(read(fd, buf, len))) > 0) {
+        len -= n;
+        buf += n;
+    }
+    if (len > 0) {
+        ALOGW("%s: there are %d bytes skipped", __func__, (int)len);
+    }
+    close(fd);
+}
+
 TokenManager::TokenManager() {
-    RAND_bytes(mKey.data(), mKey.size());
+    ReadRandomBytes(mKey.data(), mKey.size());
 }
 
 // Methods from ::android::hidl::token::V1_0::ITokenManager follow.
