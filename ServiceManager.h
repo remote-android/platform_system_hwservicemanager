@@ -6,6 +6,7 @@
 #include <hidl/MQDescriptor.h>
 #include <map>
 
+#include "AccessControl.h"
 #include "HidlService.h"
 
 namespace android {
@@ -90,6 +91,8 @@ private:
 
         std::vector<sp<IServiceNotification>> mPackageListeners{};
     };
+
+    AccessControl mAcl;
 
     /**
      * Access to this map doesn't need to be locked, since hwservicemanager

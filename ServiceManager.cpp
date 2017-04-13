@@ -149,6 +149,11 @@ bool ServiceManager::PackageInterfaceMap::removePackageListener(const wp<IBase>&
 // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
 Return<sp<IBase>> ServiceManager::get(const hidl_string& fqName,
                                       const hidl_string& name) {
+    pid_t pid = IPCThreadState::self()->getCallingPid();
+    if (!mAcl.canGet(fqName, pid)) {
+        return nullptr;
+    }
+
     auto ifaceIt = mServiceMap.find(fqName);
     if (ifaceIt == mServiceMap.end()) {
         return nullptr;
@@ -178,6 +183,15 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
     auto ret = service->interfaceChain([&](const auto &interfaceChain) {
         if (interfaceChain.size() == 0) {
             return;
+        }
+
+        // First, verify you're allowed to add() the whole interface hierarchy
+        for(size_t i = 0; i < interfaceChain.size(); i++) {
+            std::string fqName = interfaceChain[i];
+
+            if (!mAcl.canAdd(fqName, pid)) {
+                return;
+            }
         }
 
         for(size_t i = 0; i < interfaceChain.size(); i++) {
@@ -218,6 +232,11 @@ Return<ServiceManager::Transport> ServiceManager::getTransport(const hidl_string
                                                                const hidl_string& name) {
     using ::android::hardware::getTransport;
 
+    pid_t pid = IPCThreadState::self()->getCallingPid();
+    if (!mAcl.canGet(fqName, pid)) {
+        return Transport::EMPTY;
+    }
+
     switch (getTransport(fqName, name)) {
         case vintf::Transport::HWBINDER:
              return Transport::HWBINDER;
@@ -230,8 +249,14 @@ Return<ServiceManager::Transport> ServiceManager::getTransport(const hidl_string
 }
 
 Return<void> ServiceManager::list(list_cb _hidl_cb) {
+    pid_t pid = IPCThreadState::self()->getCallingPid();
+    if (!mAcl.canList(pid)) {
+        _hidl_cb({});
+        return Void();
+    }
 
     hidl_vec<hidl_string> list;
+
     list.resize(countExistingService());
 
     size_t idx = 0;
@@ -245,6 +270,12 @@ Return<void> ServiceManager::list(list_cb _hidl_cb) {
 
 Return<void> ServiceManager::listByInterface(const hidl_string& fqName,
                                              listByInterface_cb _hidl_cb) {
+    pid_t pid = IPCThreadState::self()->getCallingPid();
+    if (!mAcl.canGet(fqName, pid)) {
+        _hidl_cb({});
+        return Void();
+    }
+
     auto ifaceIt = mServiceMap.find(fqName);
     if (ifaceIt == mServiceMap.end()) {
         _hidl_cb(hidl_vec<hidl_string>());
@@ -283,6 +314,11 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
         return false;
     }
 
+    pid_t pid = IPCThreadState::self()->getCallingPid();
+    if (!mAcl.canGet(fqName, pid)) {
+        return false;
+    }
+
     PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
 
     if (name.empty()) {
@@ -315,6 +351,12 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
 }
 
 Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
+    pid_t pid = IPCThreadState::self()->getCallingPid();
+    if (!mAcl.canList(pid)) {
+        _cb({});
+        return Void();
+    }
+
     std::vector<IServiceManager::InstanceDebugInfo> list;
     forEachServiceEntry([&] (const HidlService *service) {
         hidl_vec<int32_t> clientPids;
@@ -341,6 +383,14 @@ Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
 
 Return<void> ServiceManager::registerPassthroughClient(const hidl_string &fqName,
         const hidl_string &name, int32_t pid) {
+    pid_t callingPid = IPCThreadState::self()->getCallingPid();
+    if (!mAcl.canGet(fqName, callingPid)) {
+        /* We guard this function with "get", because it's typically used in
+         * the getService() path, albeit for a passthrough service in this
+         * case
+         */
+        return Void();
+    }
 
     PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
 
