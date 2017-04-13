@@ -18,6 +18,7 @@ cc_binary {
         "hwservicemanager.rc",
     ],
     srcs: [
+        "AccessControl.cpp",
         "HidlService.cpp",
         "ServiceManager.cpp",
         "service.cpp",
