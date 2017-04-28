@@ -1,4 +1,5 @@
 #define LOG_TAG "hwservicemanager"
+//#define LOG_NDEBUG 0
 
 #include "Vintf.h"
 
@@ -24,16 +25,16 @@ vintf::Transport getTransportFromManifest(
 vintf::Transport getTransport(const std::string &interfaceName, const std::string &instanceName) {
     FQName fqName(interfaceName);
     if (!fqName.isValid()) {
-        LOG(ERROR) << "getTransport: " << interfaceName << " is not a valid fully-qualified name.";
+        LOG(DEBUG) << "getTransport: " << interfaceName << " is not a valid fully-qualified name.";
         return vintf::Transport::EMPTY;
     }
     if (!fqName.hasVersion()) {
-        LOG(ERROR) << "getTransport: " << fqName.string()
+        LOG(DEBUG) << "getTransport: " << fqName.string()
                    << " does not specify a version. Using default transport.";
         return vintf::Transport::EMPTY;
     }
     if (fqName.name().empty()) {
-        LOG(ERROR) << "getTransport: " << fqName.string()
+        LOG(DEBUG) << "getTransport: " << fqName.string()
                    << " does not specify an interface name. Using default transport.";
         return vintf::Transport::EMPTY;
     }
