@@ -340,7 +340,8 @@ Return<void> ServiceManager::debugDump(debugDump_cb _cb) {
 
 
 Return<void> ServiceManager::registerPassthroughClient(const hidl_string &fqName,
-        const hidl_string &name, int32_t pid) {
+        const hidl_string &name) {
+    pid_t pid = IPCThreadState::self()->getCallingPid();
 
     PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
 
