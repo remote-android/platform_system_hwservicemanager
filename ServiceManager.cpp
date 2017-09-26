@@ -51,7 +51,7 @@ void ServiceManager::forEachServiceEntry(std::function<void(const HidlService *)
 void ServiceManager::serviceDied(uint64_t cookie, const wp<IBase>& who) {
     switch (cookie) {
         case kServiceDiedCookie:
-            removeService(who);
+            removeService(who, nullptr /* restrictToInstanceName */);
             break;
         case kPackageListenerDiedCookie:
             removePackageListener(who);
@@ -202,15 +202,40 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
 
         // First, verify you're allowed to add() the whole interface hierarchy
         for(size_t i = 0; i < interfaceChain.size(); i++) {
-            std::string fqName = interfaceChain[i];
+            const std::string fqName = interfaceChain[i];
 
             if (!mAcl.canAdd(fqName, pid)) {
                 return;
             }
         }
 
+        {
+            // For IBar extends IFoo if IFoo/default is being registered, remove
+            // IBar/default. This makes sure the following two things are equivalent
+            // 1). IBar::castFrom(IFoo::getService(X))
+            // 2). IBar::getService(X)
+            // assuming that IBar is declared in the device manifest and there
+            // is also not an IBaz extends IFoo.
+            const std::string childFqName = interfaceChain[0];
+            const PackageInterfaceMap &ifaceMap = mServiceMap[childFqName];
+            const HidlService *hidlService = ifaceMap.lookup(name);
+            if (hidlService != nullptr) {
+                const sp<IBase> remove = hidlService->getService();
+
+                if (remove != nullptr) {
+                    const std::string instanceName = name;
+                    bool eradicated = removeService(remove, &instanceName /* restrictToInstanceName */);
+
+                    if (eradicated) {
+                        auto ret = remove->unlinkToDeath(this);
+                        ret.isOk(); // ignore
+                    }
+                }
+            }
+        }
+
         for(size_t i = 0; i < interfaceChain.size(); i++) {
-            std::string fqName = interfaceChain[i];
+            const std::string fqName = interfaceChain[i];
 
             PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
             HidlService *hidlService = ifaceMap.lookup(name);
@@ -463,22 +488,33 @@ Return<void> ServiceManager::registerPassthroughClient(const hidl_string &fqName
     return Void();
 }
 
-bool ServiceManager::removeService(const wp<IBase>& who) {
+bool ServiceManager::removeService(const wp<IBase>& who, const std::string* restrictToInstanceName) {
     using ::android::hardware::interfacesEqual;
 
-    bool found = false;
+    bool keepInstance = false;
+    bool removed = false;
     for (auto &interfaceMapping : mServiceMap) {
         auto &instanceMap = interfaceMapping.second.getInstanceMap();
 
         for (auto &servicePair : instanceMap) {
+            const std::string &instanceName = servicePair.first;
             const std::unique_ptr<HidlService> &service = servicePair.second;
+
             if (interfacesEqual(service->getService(), who.promote())) {
+                if (restrictToInstanceName != nullptr && *restrictToInstanceName != instanceName) {
+                    // We cannot remove all instances of this service, so we don't return that it
+                    // has been entirely removed.
+                    keepInstance = true;
+                    continue;
+                }
+
                 service->setService(nullptr, static_cast<pid_t>(IServiceManager::PidConstant::NO_PID));
-                found = true;
+                removed = true;
             }
         }
     }
-    return found;
+
+    return !keepInstance && removed;
 }
 
 bool ServiceManager::removePackageListener(const wp<IBase>& who) {
