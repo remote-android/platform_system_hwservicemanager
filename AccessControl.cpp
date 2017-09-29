@@ -1,3 +1,5 @@
+#define LOG_TAG "hwservicemanager"
+
 #include <android-base/logging.h>
 #include <hidl-util/FQName.h>
 #include <log/log.h>
@@ -67,7 +69,7 @@ bool AccessControl::checkPermission(pid_t sourcePid, const char *targetContext,
     struct audit_data ad;
 
     if (getpidcon(sourcePid, &sourceContext) < 0) {
-        ALOGE("SELinux: failed to retrieved process context for pid %d", sourcePid);
+        ALOGE("SELinux: failed to retrieve process context for pid %d", sourcePid);
         return false;
     }
 
