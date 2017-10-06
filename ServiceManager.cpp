@@ -254,8 +254,10 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
             ifaceMap.sendPackageRegistrationNotification(fqName, name);
         }
 
-        auto linkRet = service->linkToDeath(this, kServiceDiedCookie);
-        linkRet.isOk(); // ignore
+        bool linkRet = service->linkToDeath(this, kServiceDiedCookie).withDefault(false);
+        if (!linkRet) {
+            LOG(ERROR) << "Could not link to death for " << interfaceChain[0] << "/" << name;
+        }
 
         isValidService = true;
     });
