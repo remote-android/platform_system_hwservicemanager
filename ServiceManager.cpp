@@ -254,8 +254,10 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
             ifaceMap.sendPackageRegistrationNotification(fqName, name);
         }
 
-        auto linkRet = service->linkToDeath(this, 0 /*cookie*/);
-        linkRet.isOk(); // ignore
+        bool linkRet = service->linkToDeath(this, kServiceDiedCookie).withDefault(false);
+        if (!linkRet) {
+            LOG(ERROR) << "Could not link to death for " << interfaceChain[0] << "/" << name;
+        }
 
         isValidService = true;
     });
@@ -362,7 +364,7 @@ Return<bool> ServiceManager::registerForNotifications(const hidl_string& fqName,
     PackageInterfaceMap &ifaceMap = mServiceMap[fqName];
 
     if (name.empty()) {
-        auto ret = callback->linkToDeath(this, kPackageListenerDiedCookie /*cookie*/);
+        auto ret = callback->linkToDeath(this, kPackageListenerDiedCookie);
         if (!ret.isOk()) {
             LOG(ERROR) << "Failed to register death recipient for " << fqName << "/" << name;
             return false;
