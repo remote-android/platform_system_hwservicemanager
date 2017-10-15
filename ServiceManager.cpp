@@ -224,12 +224,7 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
 
                 if (remove != nullptr) {
                     const std::string instanceName = name;
-                    bool eradicated = removeService(remove, &instanceName /* restrictToInstanceName */);
-
-                    if (eradicated) {
-                        auto ret = remove->unlinkToDeath(this);
-                        ret.isOk(); // ignore
-                    }
+                    removeService(remove, &instanceName /* restrictToInstanceName */);
                 }
             }
         }
@@ -244,10 +239,6 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
                 ifaceMap.insertService(
                     std::make_unique<HidlService>(fqName, name, service, pid));
             } else {
-                if (hidlService->getService() != nullptr) {
-                    auto ret = hidlService->getService()->unlinkToDeath(this);
-                    ret.isOk(); // ignore
-                }
                 hidlService->setService(service, pid);
             }
 
