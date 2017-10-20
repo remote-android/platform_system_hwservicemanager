@@ -4,6 +4,7 @@
 #include "Vintf.h"
 
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hidl/HidlSupport.h>
 #include <hidl/HidlTransportSupport.h>
@@ -161,9 +162,22 @@ bool ServiceManager::PackageInterfaceMap::removeServiceListener(const wp<IBase>&
     return found;
 }
 
+static void tryStartService(const std::string& fqName, const std::string& name) {
+    using ::android::base::SetProperty;
+
+    bool success = SetProperty("ctl.interface_start", fqName + "/" + name);
+
+    if (!success) {
+        LOG(ERROR) << "Failed to set property for starting " << fqName << "/" << name;
+    }
+}
+
 // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
-Return<sp<IBase>> ServiceManager::get(const hidl_string& fqName,
-                                      const hidl_string& name) {
+Return<sp<IBase>> ServiceManager::get(const hidl_string& hidlFqName,
+                                      const hidl_string& hidlName) {
+    const std::string fqName = hidlFqName;
+    const std::string name = hidlName;
+
     pid_t pid = IPCThreadState::self()->getCallingPid();
     if (!mAcl.canGet(fqName, pid)) {
         return nullptr;
@@ -171,6 +185,7 @@ Return<sp<IBase>> ServiceManager::get(const hidl_string& fqName,
 
     auto ifaceIt = mServiceMap.find(fqName);
     if (ifaceIt == mServiceMap.end()) {
+        tryStartService(fqName, hidlName);
         return nullptr;
     }
 
@@ -178,10 +193,17 @@ Return<sp<IBase>> ServiceManager::get(const hidl_string& fqName,
     const HidlService *hidlService = ifaceMap.lookup(name);
 
     if (hidlService == nullptr) {
+        tryStartService(fqName, hidlName);
         return nullptr;
     }
 
-    return hidlService->getService();
+    sp<IBase> service = hidlService->getService();
+    if (service == nullptr) {
+        tryStartService(fqName, hidlName);
+        return nullptr;
+    }
+
+    return service;
 }
 
 Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& service) {
