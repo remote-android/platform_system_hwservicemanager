@@ -216,6 +216,7 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
     // TODO(b/34235311): use HIDL way to determine this
     // also, this assumes that the PID that is registering is the pid that is the service
     pid_t pid = IPCThreadState::self()->getCallingPid();
+    auto context = mAcl.getContext(pid);
 
     auto ret = service->interfaceChain([&](const auto &interfaceChain) {
         if (interfaceChain.size() == 0) {
@@ -226,7 +227,7 @@ Return<bool> ServiceManager::add(const hidl_string& name, const sp<IBase>& servi
         for(size_t i = 0; i < interfaceChain.size(); i++) {
             const std::string fqName = interfaceChain[i];
 
-            if (!mAcl.canAdd(fqName, pid)) {
+            if (!mAcl.canAdd(fqName, context, pid)) {
                 return;
             }
         }
