@@ -96,16 +96,8 @@ int main() {
     IPCThreadState::self()->setTheContextObject(service);
     // Then tell binder kernel
     ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, 0);
-    // Only enable FIFO inheritance for hwbinder
-    // FIXME: remove define when in the kernel
-#define BINDER_SET_INHERIT_FIFO_PRIO    _IO('b', 10)
 
-    int rc = ioctl(binder_fd, BINDER_SET_INHERIT_FIFO_PRIO);
-    if (rc) {
-        ALOGE("BINDER_SET_INHERIT_FIFO_PRIO failed with error %d\n", rc);
-    }
-
-    rc = property_set("hwservicemanager.ready", "true");
+    int rc = property_set("hwservicemanager.ready", "true");
     if (rc) {
         ALOGE("Failed to set \"hwservicemanager.ready\" (error %d). "\
               "HAL services will not start!\n", rc);
