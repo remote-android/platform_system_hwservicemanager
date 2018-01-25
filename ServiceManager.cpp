@@ -10,6 +10,7 @@
 #include <hidl/HidlTransportSupport.h>
 #include <regex>
 #include <sstream>
+#include <thread>
 
 using android::hardware::IPCThreadState;
 
@@ -165,11 +166,13 @@ bool ServiceManager::PackageInterfaceMap::removeServiceListener(const wp<IBase>&
 static void tryStartService(const std::string& fqName, const std::string& name) {
     using ::android::base::SetProperty;
 
-    bool success = SetProperty("ctl.interface_start", fqName + "/" + name);
+    std::thread([=] {
+        bool success = SetProperty("ctl.interface_start", fqName + "/" + name);
 
-    if (!success) {
-        LOG(ERROR) << "Failed to set property for starting " << fqName << "/" << name;
-    }
+        if (!success) {
+            LOG(ERROR) << "Failed to set property for starting " << fqName << "/" << name;
+        }
+    }).detach();
 }
 
 // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
