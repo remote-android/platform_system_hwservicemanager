@@ -5,8 +5,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 
-#include <android/hidl/manager/1.0/BnHwServiceManager.h>
-#include <android/hidl/manager/1.0/IServiceManager.h>
+#include <android/hidl/manager/1.1/BnHwServiceManager.h>
 #include <android/hidl/token/1.0/ITokenManager.h>
 #include <cutils/properties.h>
 #include <hidl/Status.h>
@@ -34,8 +33,7 @@ using android::hardware::hidl_vec;
 using android::hardware::joinRpcThreadpool;
 
 // hidl types
-using android::hidl::manager::V1_0::BnHwServiceManager;
-using android::hidl::manager::V1_1::IServiceManager;
+using android::hidl::manager::V1_1::BnHwServiceManager;
 using android::hidl::token::V1_0::ITokenManager;
 
 // implementations
