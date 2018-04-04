@@ -69,6 +69,7 @@ int main() {
               "HAL services will not start!\n", rc);
     }
 
+    ALOGI("hwservicemanager is ready now.");
     joinRpcThreadpool();
 
     return 0;
