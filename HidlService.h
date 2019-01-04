@@ -41,7 +41,7 @@ struct HidlService {
      */
     sp<IBase> getService() const;
     void setService(sp<IBase> service, pid_t pid);
-    pid_t getPid() const;
+    pid_t getDebugPid() const;
     const std::string &getInterfaceName() const;
     const std::string &getInstanceName() const;
 

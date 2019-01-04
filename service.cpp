@@ -10,6 +10,7 @@
 #include <android/hidl/token/1.0/ITokenManager.h>
 #include <cutils/properties.h>
 #include <hidl/Status.h>
+#include <hwbinder/binder_kernel.h>
 #include <hwbinder/IPCThreadState.h>
 #include <utils/Errors.h>
 #include <utils/Looper.h>
@@ -33,6 +34,7 @@ using android::hardware::IPCThreadState;
 using android::hardware::configureRpcThreadpool;
 using android::hardware::hidl_string;
 using android::hardware::hidl_vec;
+using android::hardware::setRequestingSid;
 
 // hidl types
 using android::hidl::manager::V1_0::BnHwServiceManager;
@@ -59,7 +61,8 @@ public:
 int main() {
     configureRpcThreadpool(1, true /* callerWillJoin */);
 
-    ServiceManager *manager = new ServiceManager();
+    sp<ServiceManager> manager = new ServiceManager();
+    setRequestingSid(manager, true);
 
     if (!manager->add(serviceName, manager)) {
         ALOGE("Failed to register hwservicemanager with itself.");
@@ -95,7 +98,19 @@ int main() {
     sp<BnHwServiceManager> service = new BnHwServiceManager(manager);
     IPCThreadState::self()->setTheContextObject(service);
     // Then tell binder kernel
-    ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, 0);
+    flat_binder_object obj {
+        .flags = FLAT_BINDER_FLAG_TXN_SECURITY_CTX,
+    };
+
+    status_t result = ioctl(binder_fd, BINDER_SET_CONTEXT_MGR_EXT, &obj);
+
+    // fallback to original method
+    if (result != 0) {
+        android_errorWriteLog(0x534e4554, "121035042");
+
+        result = ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, 0);
+    }
+
     // Only enable FIFO inheritance for hwbinder
     // FIXME: remove define when in the kernel
 #define BINDER_SET_INHERIT_FIFO_PRIO    _IO('b', 10)
