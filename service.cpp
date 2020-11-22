@@ -47,7 +47,7 @@ int main() {
     configureRpcThreadpool(1, true /* callerWillJoin */);
 
     sp<ServiceManager> manager = new ServiceManager();
-    setRequestingSid(manager, true);
+//    setRequestingSid(manager, true); // HACKED (?)
 
     if (!manager->add(serviceName, manager)) {
         ALOGE("Failed to register hwservicemanager with itself.");
