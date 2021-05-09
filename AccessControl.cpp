@@ -19,6 +19,7 @@ struct audit_data {
 using android::FQName;
 
 AccessControl::AccessControl() {
+#ifndef SE_HACK
     mSeHandle = selinux_android_hw_service_context_handle();
     LOG_ALWAYS_FATAL_IF(mSeHandle == NULL, "Failed to acquire SELinux handle.");
 
@@ -27,6 +28,7 @@ AccessControl::AccessControl() {
     }
 
     selinux_status_open(true);
+#endif
 
     mSeCallbacks.func_audit = AccessControl::auditCallback;
     selinux_set_callback(SELINUX_CB_AUDIT, mSeCallbacks);
@@ -69,12 +71,13 @@ AccessControl::CallingContext AccessControl::getCallingContext(pid_t sourcePid) 
         return { false, "", sourcePid };
     }
 
-    std::string context = sourceContext;
+    std::string context = ""/*sourceContext*/; // HACKED (?)
     freecon(sourceContext);
     return { true, context, sourcePid };
 }
 
 bool AccessControl::checkPermission(const CallingContext& source, const char *targetContext, const char *perm, const char *interface) {
+    se_hack1(true);
     if (!source.sidPresent) {
         return false;
     }
@@ -93,6 +96,7 @@ bool AccessControl::checkPermission(const CallingContext& source, const char *ta
 }
 
 bool AccessControl::checkPermission(const CallingContext& source, const char *perm, const char *interface) {
+    se_hack1(true);
     char *targetContext = nullptr;
     bool allowed = false;
 

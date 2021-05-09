@@ -62,7 +62,7 @@ int main() {
     configureRpcThreadpool(1, true /* callerWillJoin */);
 
     sp<ServiceManager> manager = new ServiceManager();
-    setRequestingSid(manager, true);
+//    setRequestingSid(manager, true); // HACKED
 
     if (!manager->add(serviceName, manager)) {
         ALOGE("Failed to register hwservicemanager with itself.");
@@ -97,6 +97,7 @@ int main() {
     // Tell IPCThreadState we're the service manager
     sp<BnHwServiceManager> service = new BnHwServiceManager(manager);
     IPCThreadState::self()->setTheContextObject(service);
+#ifndef SE_HACK
     // Then tell binder kernel
     flat_binder_object obj {
         .flags = FLAT_BINDER_FLAG_TXN_SECURITY_CTX,
@@ -110,6 +111,9 @@ int main() {
 
         result = ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, 0);
     }
+#else
+    ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, 0);
+#endif // SE_HACK
 
     // Only enable FIFO inheritance for hwbinder
     // FIXME: remove define when in the kernel
