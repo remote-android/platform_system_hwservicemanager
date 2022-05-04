@@ -71,7 +71,7 @@ AccessControl::CallingContext AccessControl::getCallingContext(pid_t sourcePid) 
         return { false, "", sourcePid };
     }
 
-    std::string context = ""/*sourceContext*/; // HACKED (?)
+    std::string context = sourceContext;
     freecon(sourceContext);
     return { true, context, sourcePid };
 }
